@@ -1,6 +1,10 @@
 import { IncomeTransaction } from "../api/model";
 
 export const formatCurrency = (amount: number, currency: string = "LAK", locale: string = "en-US") => {
+  if (currency === ""){
+    currency = "LAK";
+  }
+  
   return new Intl.NumberFormat(locale, {
     style: "currency",
     currency,
