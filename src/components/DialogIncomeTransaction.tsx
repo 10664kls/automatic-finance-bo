@@ -127,6 +127,8 @@ const DialogIncomeTransaction = ({
                     </TableRow>
                   )}
                   {transactions.map((tx) => {
+                    if (!tx.transactions) return null;
+
                     return tx.transactions.map((t) => (
                       <TableRow key={`${t.billNumber}-${index}`}>
                         <TableCell width={20}>{index++}</TableCell>
@@ -158,6 +160,7 @@ const DialogIncomeTransaction = ({
                               </IconButton>
                             </Tooltip>
                           )}
+
                           <Tooltip title="Remove">
                             <IconButton
                               onClick={() => {

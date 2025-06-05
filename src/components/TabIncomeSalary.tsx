@@ -266,18 +266,19 @@ const TabIncomeSalary = (req: TabIncomeSalaryProps) => {
                       </TableCell>
                       <TableCell align="right">{row.timesReceived}</TableCell>
                       <TableCell align="right">
-                        {row.transactions.map((tx, i) => (
-                          <Chip
-                            key={i}
-                            label={formatCurrency(
-                              tx.amount,
-                              req.calculation.account.currency
-                            )}
-                            size="small"
-                            variant="outlined"
-                            sx={{ mr: 0.5, mb: 0.5 }}
-                          />
-                        ))}
+                        {row.transactions &&
+                          row.transactions.map((tx, i) => (
+                            <Chip
+                              key={i}
+                              label={formatCurrency(
+                                tx.amount,
+                                req.calculation.account.currency
+                              )}
+                              size="small"
+                              variant="outlined"
+                              sx={{ mr: 0.5, mb: 0.5 }}
+                            />
+                          ))}
                       </TableCell>
                       <TableCell align="right">
                         {formatCurrency(
