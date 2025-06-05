@@ -1,0 +1,275 @@
+import React from "react";
+import axios from "axios";
+import {
+  Box,
+  Button,
+  Paper,
+  TextField,
+  Typography,
+  CircularProgress,
+  Snackbar,
+  Alert,
+  Stack,
+} from "@mui/material";
+import UploadFileIcon from "@mui/icons-material/UploadFile";
+import CalculateIcon from "@mui/icons-material/Calculate";
+import ArrowBackIcon from "@mui/icons-material/ArrowBack";
+import { useForm, Controller } from "react-hook-form";
+import { Link as RouterLink } from "react-router-dom";
+
+type FormData = {
+  loNumber: string;
+  fileUrl: string;
+};
+
+const CIBCalculator: React.FC = () => {
+  const { handleSubmit, control, setValue } = useForm<FormData>();
+  const [showSnackbar, setShowSnackbar] = React.useState(false);
+  const [uploading, setUploading] = React.useState(false);
+  const [uploadSuccess, setUploadSuccess] = React.useState(false);
+  const [fileError, setFileError] = React.useState<string | null>(null);
+  const [isDragging, setIsDragging] = React.useState(false);
+  const selectedFile = React.useRef<File | null>(null);
+
+  const onSubmit = (data: FormData) => {
+    console.log("Submitted:", data);
+    alert("Form submitted successfully!");
+  };
+
+  const handleFile = (file: File) => {
+    const allowedTypes = [
+      "application/vnd.ms-excel",
+      "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+    ];
+
+    if (!allowedTypes.includes(file.type)) {
+      setFileError("Only Excel files (.xls or .xlsx) are allowed");
+      return;
+    }
+
+    setFileError(null);
+    selectedFile.current = file;
+    handleFileUpload(file);
+  };
+
+  const handleFileUpload = async (file: File) => {
+    setUploading(true);
+    setUploadSuccess(false);
+    setFileError(null);
+
+    try {
+      const formData = new FormData();
+      formData.append("file", file);
+
+      const response = await axios.post("/api/upload", formData, {
+        headers: {
+          "Content-Type": "multipart/form-data",
+        },
+      });
+
+      const uploadedUrl = response.data.url;
+      setValue("fileUrl", uploadedUrl);
+      setUploadSuccess(true);
+      setShowSnackbar(true);
+    } catch (err) {
+      console.error("File upload failed:", err);
+      setFileError("Upload failed. Please try again.");
+    } finally {
+      setUploading(false);
+    }
+  };
+
+  return (
+    <Box
+      sx={{
+        mt: 4,
+        display: "flex",
+        justifyContent: "center",
+        alignItems: "center",
+        minHeight: "60vh", // Adjust as needed
+      }}>
+      <Paper
+        elevation={3}
+        sx={{
+          p: 4,
+          borderRadius: 2,
+          maxWidth: 650,
+          width: "100%",
+        }}>
+        <Typography variant="h4" gutterBottom>
+          CIB Calculation
+        </Typography>
+        <form onSubmit={handleSubmit(onSubmit)} noValidate>
+          <Controller
+            name="loNumber"
+            control={control}
+            defaultValue=""
+            rules={{ required: "Facility/LO Number is required" }}
+            render={({ field, fieldState }) => (
+              <TextField
+                required
+                {...field}
+                label="Facility/LO Number"
+                fullWidth
+                margin="normal"
+                error={!!fieldState.error}
+                helperText={fieldState.error?.message}
+              />
+            )}
+          />
+
+          <Controller
+            name="fileUrl"
+            control={control}
+            defaultValue=""
+            rules={{ required: "CIB file is required" }}
+            render={({ fieldState }) => (
+              <Box mt={2}>
+                <Typography
+                  variant="subtitle1"
+                  color={
+                    fileError || fieldState.error ? "error" : "text.primary"
+                  }
+                  gutterBottom>
+                  CIB file in json format (.json) *
+                </Typography>
+
+                <Box
+                  onDragOver={(e) => {
+                    e.preventDefault();
+                    setIsDragging(true);
+                  }}
+                  onDragLeave={() => setIsDragging(false)}
+                  onDrop={(e) => {
+                    e.preventDefault();
+                    setIsDragging(false);
+                    const file = e.dataTransfer.files?.[0];
+                    if (file) handleFile(file);
+                  }}
+                  sx={{
+                    border: "2px dashed #ccc",
+                    p: 3,
+                    borderRadius: 2,
+                    textAlign: "center",
+                    cursor: "pointer",
+                    borderColor:
+                      fileError || fieldState.error ? "error.main" : "grey.400",
+                    backgroundColor:
+                      fileError || fieldState.error
+                        ? "#fdecea" // light red background for error
+                        : isDragging
+                        ? "#f5f5f5" // light gray on drag
+                        : "#fafafa", // default
+                    transition: "all 0.3s ease-in-out",
+                    "&:hover": {
+                      borderColor:
+                        fileError || fieldState.error
+                          ? "error.dark"
+                          : "primary.main",
+                    },
+                  }}>
+                  <UploadFileIcon
+                    sx={{
+                      fontSize: 40,
+                      color:
+                        fileError || fieldState.error
+                          ? "error.main"
+                          : "action.active",
+                    }}
+                  />
+                  <Typography
+                    variant="body2"
+                    mt={1}
+                    color={
+                      fileError || fieldState.error ? "error" : "text.secondary"
+                    }>
+                    Drag and drop json file here
+                  </Typography>
+                  <Typography
+                    variant="body2"
+                    color={
+                      fileError || fieldState.error ? "error" : "text.secondary"
+                    }>
+                    or
+                  </Typography>
+                  <Button
+                    color={fileError || fieldState.error ? "error" : "primary"}
+                    variant="outlined"
+                    component="label"
+                    sx={{ mt: 1 }}
+                    disabled={uploading}>
+                    Browse
+                    <input
+                      type="file"
+                      hidden
+                      accept=".json,application/json"
+                      onChange={(e) => {
+                        const file = e.target.files?.[0];
+                        if (file) handleFile(file);
+                      }}
+                    />
+                  </Button>
+                </Box>
+
+                {fileError && (
+                  <Typography variant="body2" color="error" mt={1}>
+                    {fileError}
+                  </Typography>
+                )}
+
+                {fieldState.error && !fileError && (
+                  <Typography variant="body2" color="error" mt={1}>
+                    {fieldState.error.message}
+                  </Typography>
+                )}
+
+                {selectedFile.current && (
+                  <Typography variant="body2" mt={1}>
+                    Selected: <strong>{selectedFile.current.name}</strong>
+                  </Typography>
+                )}
+              </Box>
+            )}
+          />
+
+          {uploadSuccess && (
+            <Snackbar
+              open={showSnackbar}
+              autoHideDuration={3000}
+              onClose={() => setShowSnackbar(false)}
+              anchorOrigin={{ vertical: "top", horizontal: "right" }}>
+              <Alert
+                onClose={() => setShowSnackbar(false)}
+                severity="success"
+                sx={{ width: "100%" }}>
+                File uploaded successfully!
+              </Alert>
+            </Snackbar>
+          )}
+
+          <Stack spacing={1} direction="row" justifyContent="flex-end" mt={4}>
+            <Button
+              startIcon={<ArrowBackIcon />}
+              component={RouterLink}
+              to="/cib-calculations"
+              variant="outlined"
+              sx={{ whiteSpace: "nowrap" }}>
+              Back
+            </Button>
+            <Button
+              startIcon={<CalculateIcon />}
+              type="submit"
+              variant="contained"
+              color="primary"
+              disabled={uploading}
+              endIcon={uploading ? <CircularProgress size={20} /> : undefined}>
+              Calculate
+            </Button>
+          </Stack>
+        </form>
+      </Paper>
+    </Box>
+  );
+};
+
+export default CIBCalculator;
