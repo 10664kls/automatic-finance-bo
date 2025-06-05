@@ -19,7 +19,7 @@ import {
   Tooltip,
 } from "@mui/material";
 import { IncomeTransaction } from "../api/model";
-import { Add, Cancel, Delete, Save } from "@mui/icons-material";
+import { Add, Cancel, Delete, DriveFileMove, Save } from "@mui/icons-material";
 import { formatCurrency } from "../utils/format";
 import { useState } from "react";
 import API from "../api/axios";
@@ -37,6 +37,7 @@ interface DialogProps {
   transactions: TransactionBreakdown[];
   addTransaction: (transaction: IncomeTransaction) => void;
   removeTransaction: (title: string, billNumber: string) => void;
+  moveTransaction?: (title: string, transaction: IncomeTransaction) => void; // Optional if you want to implement moving transactions
   saveChanges: () => void;
   onClose: () => void;
 }
@@ -51,6 +52,7 @@ const DialogIncomeTransaction = ({
   removeTransaction,
   saveChanges,
   category,
+  moveTransaction,
 }: DialogProps) => {
   const [showSnackbar, setShowSnackbar] = useState(false);
   const [success, setSuccess] = useState(false);
@@ -137,6 +139,25 @@ const DialogIncomeTransaction = ({
                           {formatCurrency(t.amount, currency)}
                         </TableCell>
                         <TableCell>
+                          {category.toUpperCase() === "SALARY" && (
+                            <Tooltip title="Move to Commission/OT">
+                              <IconButton
+                                onClick={() => {
+                                  if (moveTransaction) {
+                                    moveTransaction(tx.title, t);
+                                    setShowSnackbar(true);
+                                    setSuccess(true);
+                                    setSuccessMessage(
+                                      "Transaction moved successfully"
+                                    );
+                                  }
+                                }}
+                                size="small"
+                                color="primary">
+                                <DriveFileMove />
+                              </IconButton>
+                            </Tooltip>
+                          )}
                           <Tooltip title="Remove">
                             <IconButton
                               onClick={() => {

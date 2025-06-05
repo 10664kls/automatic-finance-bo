@@ -12,7 +12,12 @@ import {
   TableRow,
   Typography,
 } from "@mui/material";
-import { Calculation, IncomeTransaction, MonthlySalary } from "../api/model";
+import {
+  Calculation,
+  Commission,
+  IncomeTransaction,
+  MonthlySalary,
+} from "../api/model";
 import { Edit, Payments } from "@mui/icons-material";
 import { formatCurrency, sumFromIncomeTransactions } from "../utils/format";
 import DialogIncomeTransaction from "./DialogIncomeTransaction";
@@ -32,6 +37,7 @@ const TabIncomeSalary = (req: TabIncomeSalaryProps) => {
   const [submitError, setSubmitError] = useState<string | null>(null);
   const [submitSuccess, setSubmitSuccess] = useState(false);
   const [editSalaries, setEditSalaries] = useState<MonthlySalary[]>([]);
+  const [editCommissions, setEditCommissions] = useState<Commission[]>([]);
   const queryClient = useQueryClient();
 
   const recalculateMutation = useMutation({
@@ -42,7 +48,7 @@ const TabIncomeSalary = (req: TabIncomeSalaryProps) => {
           {
             monthlySalaries: editSalaries,
             allowances: req.calculation.allowanceBreakdown.allowances,
-            commissions: req.calculation.commissionBreakdown.commissions,
+            commissions: editCommissions,
           }
         );
         if (response.status !== 200) {
@@ -139,6 +145,45 @@ const TabIncomeSalary = (req: TabIncomeSalaryProps) => {
     });
   };
 
+  const moveTransactionToCommission = (
+    month: string,
+    transaction: IncomeTransaction
+  ) => {
+    removeTransactionByIndex(month, transaction.billNumber);
+    setEditCommissions((prev) => {
+      const month = DateTime.fromFormat(
+        transaction.date,
+        "dd-MM-yyyy"
+      ).toFormat("LLLL-yyyy");
+      const existingIndex = prev.findIndex((item) => item.month === month);
+
+      // Case 1: Update existing item
+      if (existingIndex !== -1) {
+        const updated = [...prev];
+        const existingItem = updated[existingIndex];
+        const updatedTransactions = [...existingItem.transactions, transaction];
+
+        const total = sumFromIncomeTransactions(updatedTransactions);
+        updated[existingIndex] = {
+          ...existingItem,
+          transactions: updatedTransactions,
+          total,
+        };
+
+        return updated;
+      }
+
+      // Case 2: Add new item
+      const newItem = {
+        month,
+        transactions: [transaction],
+        total: transaction.amount,
+      };
+
+      return [...prev, newItem];
+    });
+  };
+
   return (
     <>
       <Box sx={{ p: 3 }}>
@@ -161,6 +206,9 @@ const TabIncomeSalary = (req: TabIncomeSalaryProps) => {
                   setOpenDialog(true);
                   setEditSalaries(
                     req.calculation.salaryBreakdown.monthlySalaries
+                  );
+                  setEditCommissions(
+                    req.calculation.commissionBreakdown.commissions
                   );
                 }}
                 size="small"
@@ -260,7 +308,7 @@ const TabIncomeSalary = (req: TabIncomeSalaryProps) => {
         </TableContainer>
       </Box>
 
-      {openDialog && (
+      {openDialog && req.calculation.status === "PENDING" && (
         <DialogIncomeTransaction
           open={openDialog}
           category="Salary"
@@ -276,6 +324,7 @@ const TabIncomeSalary = (req: TabIncomeSalaryProps) => {
           saveChanges={saveChanges}
           addTransaction={addTransaction}
           removeTransaction={removeTransactionByIndex}
+          moveTransaction={moveTransactionToCommission}
         />
       )}
 
