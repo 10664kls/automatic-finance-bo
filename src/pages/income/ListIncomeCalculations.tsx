@@ -19,6 +19,7 @@ import {
   InputLabel,
   Grid,
   Alert,
+  Snackbar,
 } from "@mui/material";
 import { Link as RouterLink } from "react-router-dom";
 import AddIcon from "@mui/icons-material/Add";
@@ -93,6 +94,9 @@ const listCalculations = async (f: Filter): Promise<ListCalculations> => {
 };
 
 const ListIncomeCalculations = () => {
+  const [showSnackbar, setShowSnackbar] = useState<boolean>(false);
+  const [error, setError] = useState<string | null>(null);
+  const [success, setSuccess] = useState<string | null>(null);
   const [product, setProduct] = useState<string>("ALL");
   const [number, setNumber] = useState<string>("");
   const [accountName, setAccountName] = useState<string>("");
@@ -131,11 +135,6 @@ const ListIncomeCalculations = () => {
       }),
   });
 
-  const handleExport = () => {
-    // TODO: export to Excel logic
-    alert("Export to Excel clicked");
-  };
-
   const handleFilter = () => {
     mutation.mutate();
   };
@@ -167,335 +166,435 @@ const ListIncomeCalculations = () => {
     setPreviousToken((t) => [...t, token]);
   };
 
+  const handleExportCalculationsToExcel = async () => {
+    const apiURL = new URL(
+      `${
+        import.meta.env.VITE_API_BASE_URL
+      }/v1/incomes/calculations/export-to-excel`
+    );
+    if (from) {
+      apiURL.searchParams.set("createdAfter", from.toString());
+    }
+    if (to) {
+      const toDate = to.plus({ hours: 23, minutes: 59, seconds: 59 });
+      apiURL.searchParams.set("createdBefore", toDate.toString());
+    }
+    if (number) {
+      apiURL.searchParams.set("number", number);
+    }
+    if (product !== "" && product !== "ALL") {
+      apiURL.searchParams.set("product", product);
+    }
+    if (accountName) {
+      apiURL.searchParams.set("accountDisplayName", accountName);
+    }
+
+    try {
+      const resp = await API.get(apiURL.toString(), { responseType: "blob" });
+      if (resp.status !== 200) {
+        throw new Error(resp.statusText);
+      }
+
+      const blob = resp.data;
+      const link = document.createElement("a");
+      link.href = URL.createObjectURL(blob);
+      link.download = "Income_Calculations_Report.xlsx";
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+      setSuccess("Export Calculations to Excel successfully");
+      setShowSnackbar(true);
+      return;
+    } catch {
+      setError("Failed to export to Excel. Please try again.");
+      setShowSnackbar(true);
+    }
+  };
+
+  const handleExportCalculationToExcelByNumber = async (number: string) => {
+    try {
+      const resp = await API.get(
+        `${
+          import.meta.env.VITE_API_BASE_URL
+        }/v1/incomes/calculations/${number}/export-to-excel`,
+        { responseType: "blob" }
+      );
+      if (resp.status !== 200) {
+        throw new Error(resp.statusText);
+      }
+
+      const blob = resp.data;
+      const link = document.createElement("a");
+      link.href = URL.createObjectURL(blob);
+      link.download = `Income_Calculation_${number}.xlsx`;
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+      setShowSnackbar(true);
+      setSuccess("Export Income Calculation to Excel successfully");
+    } catch {
+      setError("Failed to export to Excel. Please try again.");
+      setShowSnackbar(true);
+    }
+  };
+
   const indexOfLastItem = (pageNumber + 1) * pageSize;
   const indexOfFirstItem = indexOfLastItem - pageSize;
 
   return (
-    <Box>
-      <Paper sx={{ padding: 2, mb: 2 }}>
-        <Grid
-          container
-          spacing={2}
-          direction={{
-            sm: "column",
-            md: "row",
-          }}
-          sx={{
-            mb: 2,
-          }}>
+    <>
+      {" "}
+      <Box>
+        <Paper sx={{ padding: 2, mb: 2 }}>
           <Grid
-            size={{
-              xs: 12,
-              sm: 12,
-              md: 2,
-            }}
-            sx={{ mt: 0.5 }}>
-            <FormControl fullWidth variant="standard">
-              <InputLabel id="product">Product</InputLabel>
-              <Select
-                labelId="product"
-                id="product"
-                label="Product"
-                size="small"
-                value={product}
-                onChange={(e) => setProduct(e.target.value)}
-                fullWidth>
-                <MenuItem value="ALL">All</MenuItem>
-                <MenuItem value="SF">SF</MenuItem>
-                <MenuItem value="PL">PL</MenuItem>
-                <MenuItem value="SA">SA</MenuItem>
-              </Select>
-            </FormControl>
-          </Grid>
-          <Grid
-            size={{
-              xs: 12,
-              sm: 12,
-              md: 2,
-            }}
-            sx={{ mt: 0.5 }}>
-            <TextField
-              fullWidth
-              label="FLAPPL/LO NO"
-              variant="standard"
-              size="small"
-              value={number}
-              onChange={(e) => setNumber(e.target.value)}
-            />
-          </Grid>
-          <Grid
-            size={{
-              xs: 12,
-              sm: 12,
-              md: 2,
-            }}
-            sx={{ mt: 0.5 }}>
-            <TextField
-              fullWidth
-              value={accountName}
-              onChange={(e) => setAccountName(e.target.value)}
-              label="Bank Account Name"
-              variant="standard"
-              size="small"
-            />
-          </Grid>
-          <Grid
-            size={{
-              xs: 12,
-              sm: 12,
-              md: 2,
-            }}>
-            <LocalizationProvider dateAdapter={AdapterLuxon}>
-              <DatePicker
-                format="dd/MM/yyyy"
-                label="From"
-                value={from}
-                onChange={(newValue) => setFrom(newValue)}
-                slotProps={{
-                  textField: {
-                    name: "from",
-                    id: "from",
-                    variant: "standard",
-                    fullWidth: true,
-                    size: "small",
-                  },
-                }}
-              />
-            </LocalizationProvider>
-          </Grid>
-          <Grid
-            size={{
-              xs: 12,
-              sm: 12,
-              md: 2,
-            }}>
-            <LocalizationProvider dateAdapter={AdapterLuxon}>
-              <DatePicker
-                format="dd/MM/yyyy"
-                label="To"
-                value={to}
-                onChange={(newValue) => setTo(newValue)}
-                slotProps={{
-                  textField: {
-                    name: "to",
-                    id: "to",
-                    fullWidth: true,
-                    variant: "standard",
-                    size: "small",
-                  },
-                }}
-              />
-            </LocalizationProvider>
-          </Grid>
-          <Grid
-            size={{
-              xs: 12,
-              sm: 12,
-              md: 2,
+            container
+            spacing={2}
+            direction={{
+              sm: "column",
+              md: "row",
             }}
             sx={{
-              mt: 1.5,
+              mb: 2,
             }}>
-            <Stack
-              direction="row"
-              spacing={1}
-              sx={{
-                justifyContent: "flex-end",
+            <Grid
+              size={{
+                xs: 12,
+                sm: 12,
+                md: 2,
+              }}
+              sx={{ mt: 0.5 }}>
+              <FormControl fullWidth variant="standard">
+                <InputLabel id="product">Product</InputLabel>
+                <Select
+                  labelId="product"
+                  id="product"
+                  label="Product"
+                  size="small"
+                  value={product}
+                  onChange={(e) => setProduct(e.target.value)}
+                  fullWidth>
+                  <MenuItem value="ALL">All</MenuItem>
+                  <MenuItem value="SF">SF</MenuItem>
+                  <MenuItem value="PL">PL</MenuItem>
+                  <MenuItem value="SA">SA</MenuItem>
+                </Select>
+              </FormControl>
+            </Grid>
+            <Grid
+              size={{
+                xs: 12,
+                sm: 12,
+                md: 2,
+              }}
+              sx={{ mt: 0.5 }}>
+              <TextField
+                fullWidth
+                label="FLAPPL/LO NO"
+                variant="standard"
+                size="small"
+                value={number}
+                onChange={(e) => setNumber(e.target.value)}
+              />
+            </Grid>
+            <Grid
+              size={{
+                xs: 12,
+                sm: 12,
+                md: 2,
+              }}
+              sx={{ mt: 0.5 }}>
+              <TextField
+                fullWidth
+                value={accountName}
+                onChange={(e) => setAccountName(e.target.value)}
+                label="Bank Account Name"
+                variant="standard"
+                size="small"
+              />
+            </Grid>
+            <Grid
+              size={{
+                xs: 12,
+                sm: 12,
+                md: 2,
               }}>
+              <LocalizationProvider dateAdapter={AdapterLuxon}>
+                <DatePicker
+                  format="dd/MM/yyyy"
+                  label="From"
+                  value={from}
+                  onChange={(newValue) => setFrom(newValue)}
+                  slotProps={{
+                    textField: {
+                      name: "from",
+                      id: "from",
+                      variant: "standard",
+                      fullWidth: true,
+                      size: "small",
+                    },
+                  }}
+                />
+              </LocalizationProvider>
+            </Grid>
+            <Grid
+              size={{
+                xs: 12,
+                sm: 12,
+                md: 2,
+              }}>
+              <LocalizationProvider dateAdapter={AdapterLuxon}>
+                <DatePicker
+                  format="dd/MM/yyyy"
+                  label="To"
+                  value={to}
+                  onChange={(newValue) => setTo(newValue)}
+                  slotProps={{
+                    textField: {
+                      name: "to",
+                      id: "to",
+                      fullWidth: true,
+                      variant: "standard",
+                      size: "small",
+                    },
+                  }}
+                />
+              </LocalizationProvider>
+            </Grid>
+            <Grid
+              size={{
+                xs: 12,
+                sm: 12,
+                md: 2,
+              }}
+              sx={{
+                mt: 1.5,
+              }}>
+              <Stack
+                direction="row"
+                spacing={1}
+                sx={{
+                  justifyContent: "flex-end",
+                }}>
+                <Button
+                  onClick={handleClearFilter}
+                  variant="outlined"
+                  color="primary"
+                  startIcon={<ClearIcon />}>
+                  Clear
+                </Button>
+                <Button
+                  variant="contained"
+                  color="primary"
+                  onClick={handleFilter}
+                  startIcon={<SearchIcon />}>
+                  Filter
+                </Button>
+              </Stack>
+            </Grid>
+          </Grid>
+        </Paper>
+
+        <Paper
+          sx={{
+            p: 2,
+            display: "flex",
+            flexDirection: "column",
+          }}>
+          <Stack
+            direction="row"
+            justifyContent="space-between"
+            alignItems="center"
+            mb={2}>
+            <Typography variant="h6">
+              Income Calculations
               <Button
-                onClick={handleClearFilter}
-                variant="outlined"
-                color="primary"
-                startIcon={<ClearIcon />}>
-                Clear
-              </Button>
-              <Button
+                component={RouterLink}
+                to="/income-calculations/new"
                 variant="contained"
-                color="primary"
-                onClick={handleFilter}
-                startIcon={<SearchIcon />}>
-                Filter
+                startIcon={<AddIcon />}
+                sx={{ whiteSpace: "nowrap", ml: 2 }}>
+                Add New
+              </Button>
+            </Typography>
+
+            <Stack direction="row" spacing={1}>
+              <Button
+                variant="outlined"
+                startIcon={<DownloadIcon />}
+                onClick={handleExportCalculationsToExcel}>
+                Export
               </Button>
             </Stack>
-          </Grid>
-        </Grid>
-      </Paper>
-
-      <Paper
-        sx={{
-          p: 2,
-          display: "flex",
-          flexDirection: "column",
-        }}>
-        <Stack
-          direction="row"
-          justifyContent="space-between"
-          alignItems="center"
-          mb={2}>
-          <Typography variant="h6">
-            Income Calculations
-            <Button
-              component={RouterLink}
-              to="/income-calculations/new"
-              variant="contained"
-              startIcon={<AddIcon />}
-              sx={{ whiteSpace: "nowrap", ml: 2 }}>
-              Add New
-            </Button>
-          </Typography>
-
-          <Stack direction="row" spacing={1}>
-            <Button
-              variant="outlined"
-              startIcon={<DownloadIcon />}
-              onClick={handleExport}>
-              Export
-            </Button>
           </Stack>
-        </Stack>
 
-        {isCalculationsLoading && (
-          <Box sx={{ padding: 2 }}>
-            <Skeleton />
-            <Skeleton animation="wave" />
-            <Skeleton animation={false} />
-          </Box>
-        )}
+          {isCalculationsLoading && (
+            <Box sx={{ padding: 2 }}>
+              <Skeleton />
+              <Skeleton animation="wave" />
+              <Skeleton animation={false} />
+            </Box>
+          )}
 
-        {listCalculationsError && (
-          <Alert severity="error" sx={{ mb: 1, mt: 1 }}>
-            [Error] Something went wrong. Please try again later
-          </Alert>
-        )}
+          {listCalculationsError && (
+            <Alert severity="error" sx={{ mb: 1, mt: 1 }}>
+              [Error] Something went wrong. Please try again later
+            </Alert>
+          )}
 
-        {calculations && (
-          <TableContainer component={Box}>
-            <Table size="small">
-              <TableHead>
-                <TableRow>
-                  {incomeTableHeaders.map((header) => (
-                    <TableCell
-                      key={header}
-                      sx={{ whiteSpace: "nowrap", fontWeight: "bold" }}>
-                      {header}
-                    </TableCell>
-                  ))}
-                </TableRow>
-              </TableHead>
-              <TableBody>
-                {calculations.calculations.map((row, idx) => (
-                  <TableRow key={idx}>
-                    <TableCell sx={{ whiteSpace: "nowrap" }}>
-                      {idx + 1 + indexOfFirstItem}
-                    </TableCell>
-                    <TableCell sx={{ whiteSpace: "nowrap" }}>
-                      {row.number}
-                    </TableCell>
-                    <TableCell sx={{ whiteSpace: "nowrap" }}>
-                      {row.product}
-                    </TableCell>
-                    <TableCell sx={{ whiteSpace: "nowrap" }}>
-                      {formatCurrency(
-                        row.monthlyAverageIncome,
-                        row.account.currency
-                      )}
-                    </TableCell>
-                    <TableCell sx={{ whiteSpace: "nowrap" }}>
-                      {row.account.number}
-                    </TableCell>
-                    <TableCell sx={{ whiteSpace: "nowrap" }}>
-                      {row.account.displayName}
-                    </TableCell>
-                    <TableCell sx={{ whiteSpace: "nowrap" }}>
-                      {`${DateTime.fromISO(row.startedAt, {
-                        zone: "Asia/Vientiane",
-                      }).toFormat("dd/MM/yyyy")} - ${DateTime.fromISO(
-                        row.endedAt,
-                        {
-                          zone: "Asia/Vientiane",
-                        }
-                      ).toFormat("dd/MM/yyyy")}`}
-                    </TableCell>
-                    <TableCell sx={{ whiteSpace: "nowrap" }}>
-                      {row.account.currency}
-                    </TableCell>
-                    <TableCell
-                      sx={{ whiteSpace: "nowrap", fontWeight: "bold" }}>
-                      {formatCurrency(row.monthlyNetIncome)}
-                    </TableCell>
-                    <TableCell sx={{ whiteSpace: "nowrap" }}>
-                      <Stack direction="row" spacing={1}>
-                        <Button
-                          startIcon={<VisibilityIcon />}
-                          size="small"
-                          variant="outlined"
-                          color="primary"
-                          component={RouterLink}
-                          to={`/income-calculations/${row.number}`}>
-                          Preview
-                        </Button>
-                        <Button
-                          variant="outlined"
-                          size="small"
-                          startIcon={<DownloadIcon />}
-                          onClick={() => ""}>
-                          Export
-                        </Button>
-                      </Stack>
-                    </TableCell>
+          {calculations && (
+            <TableContainer component={Box}>
+              <Table size="small">
+                <TableHead>
+                  <TableRow>
+                    {incomeTableHeaders.map((header) => (
+                      <TableCell
+                        key={header}
+                        sx={{ whiteSpace: "nowrap", fontWeight: "bold" }}>
+                        {header}
+                      </TableCell>
+                    ))}
                   </TableRow>
-                ))}
-              </TableBody>
-            </Table>
-          </TableContainer>
-        )}
-        <TablePagination
-          component="div"
-          rowsPerPage={pageSize}
-          page={pageNumber}
-          count={calculations ? calculations.calculations.length : 0}
-          onPageChange={() => {}}
-          onRowsPerPageChange={handlePageSizeChange}
-          labelRowsPerPage="Page Size"
-          labelDisplayedRows={() => ``}
-          rowsPerPageOptions={[100, 200]}
-          slotProps={{
-            actions: {
-              previousButton: {
-                disabled: previousToken.length >= 1 ? false : true,
-                onClick: () => {
-                  if (pageNumber > 0 && previousToken.length > 0) {
-                    setPageNumber(pageNumber - 1);
-                    if (previousToken.length == 1) {
-                      setPreviousToken([]);
-                      setPageToken("");
-                      return;
-                    }
+                </TableHead>
+                <TableBody>
+                  {calculations.calculations.map((row, idx) => (
+                    <TableRow key={idx}>
+                      <TableCell sx={{ whiteSpace: "nowrap" }}>
+                        {idx + 1 + indexOfFirstItem}
+                      </TableCell>
+                      <TableCell sx={{ whiteSpace: "nowrap" }}>
+                        {row.number}
+                      </TableCell>
+                      <TableCell sx={{ whiteSpace: "nowrap" }}>
+                        {row.product}
+                      </TableCell>
+                      <TableCell sx={{ whiteSpace: "nowrap" }}>
+                        {formatCurrency(
+                          row.monthlyAverageIncome,
+                          row.account.currency
+                        )}
+                      </TableCell>
+                      <TableCell sx={{ whiteSpace: "nowrap" }}>
+                        {row.account.number}
+                      </TableCell>
+                      <TableCell sx={{ whiteSpace: "nowrap" }}>
+                        {row.account.displayName}
+                      </TableCell>
+                      <TableCell sx={{ whiteSpace: "nowrap" }}>
+                        {`${DateTime.fromISO(row.startedAt, {
+                          zone: "Asia/Vientiane",
+                        }).toFormat("dd/MM/yyyy")} - ${DateTime.fromISO(
+                          row.endedAt,
+                          {
+                            zone: "Asia/Vientiane",
+                          }
+                        ).toFormat("dd/MM/yyyy")}`}
+                      </TableCell>
+                      <TableCell sx={{ whiteSpace: "nowrap" }}>
+                        {row.account.currency}
+                      </TableCell>
+                      <TableCell
+                        sx={{ whiteSpace: "nowrap", fontWeight: "bold" }}>
+                        {formatCurrency(row.monthlyNetIncome)}
+                      </TableCell>
+                      <TableCell sx={{ whiteSpace: "nowrap" }}>
+                        <Stack direction="row" spacing={1}>
+                          <Button
+                            startIcon={<VisibilityIcon />}
+                            size="small"
+                            variant="outlined"
+                            color="primary"
+                            component={RouterLink}
+                            to={`/income-calculations/${row.number}`}>
+                            Preview
+                          </Button>
+                          <Button
+                            variant="outlined"
+                            size="small"
+                            startIcon={<DownloadIcon />}
+                            onClick={() =>
+                              handleExportCalculationToExcelByNumber(row.number)
+                            }>
+                            Export
+                          </Button>
+                        </Stack>
+                      </TableCell>
+                    </TableRow>
+                  ))}
+                </TableBody>
+              </Table>
+            </TableContainer>
+          )}
+          <TablePagination
+            component="div"
+            rowsPerPage={pageSize}
+            page={pageNumber}
+            count={calculations ? calculations.calculations.length : 0}
+            onPageChange={() => {}}
+            onRowsPerPageChange={handlePageSizeChange}
+            labelRowsPerPage="Page Size"
+            labelDisplayedRows={() => ``}
+            rowsPerPageOptions={[100, 200]}
+            slotProps={{
+              actions: {
+                previousButton: {
+                  disabled: previousToken.length >= 1 ? false : true,
+                  onClick: () => {
+                    if (pageNumber > 0 && previousToken.length > 0) {
+                      setPageNumber(pageNumber - 1);
+                      if (previousToken.length == 1) {
+                        setPreviousToken([]);
+                        setPageToken("");
+                        return;
+                      }
 
-                    const token = getPreviousToken();
-                    setPageToken(token);
-                  }
+                      const token = getPreviousToken();
+                      setPageToken(token);
+                    }
+                  },
+                },
+                nextButton: {
+                  disabled:
+                    calculations && calculations.nextPageToken.length > 0
+                      ? false
+                      : true,
+                  onClick: () => {
+                    if (calculations && calculations.nextPageToken.length > 0) {
+                      const token = calculations.nextPageToken;
+                      setPageNumber(pageNumber + 1);
+                      setPageToken(token);
+                      handPreviousToken(token);
+                    }
+                  },
                 },
               },
-              nextButton: {
-                disabled:
-                  calculations && calculations.nextPageToken.length > 0
-                    ? false
-                    : true,
-                onClick: () => {
-                  if (calculations && calculations.nextPageToken.length > 0) {
-                    const token = calculations.nextPageToken;
-                    setPageNumber(pageNumber + 1);
-                    setPageToken(token);
-                    handPreviousToken(token);
-                  }
-                },
-              },
-            },
-          }}
-        />
-      </Paper>
-    </Box>
+            }}
+          />
+        </Paper>
+      </Box>
+      {success && showSnackbar && (
+        <Snackbar
+          open={showSnackbar}
+          autoHideDuration={3000}
+          onClose={() => setShowSnackbar(false)}
+          anchorOrigin={{ vertical: "top", horizontal: "right" }}>
+          <Alert
+            onClose={() => setShowSnackbar(false)}
+            severity="success"
+            sx={{ width: "100%" }}>
+            {success}
+          </Alert>
+        </Snackbar>
+      )}
+      <Snackbar
+        open={!!error}
+        anchorOrigin={{ vertical: "top", horizontal: "right" }}
+        autoHideDuration={5000}
+        onClose={() => setError(null)}>
+        <Alert severity="error" onClose={() => setError(null)}>
+          {error}
+        </Alert>
+      </Snackbar>
+    </>
   );
 };
 

@@ -48,10 +48,11 @@ import TabIncomeCommission from "../../components/TabIncomeCommission";
 
 const PreviewIncomeCalculation: React.FC = () => {
   const [activeTab, setActiveTab] = useState(0);
-  const [showSnackbar, setShowSnackbar] = useState<boolean>(false);
   const [openConfirm, setOpenConfirm] = useState(false);
+  const [showSnackbar, setShowSnackbar] = useState<boolean>(false);
   const [error, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState<string | null>(null);
+
   const query = useParams();
   const theme = useTheme();
   const primaryColor = theme.palette.primary.main;
@@ -113,6 +114,33 @@ const PreviewIncomeCalculation: React.FC = () => {
       .join("");
   };
 
+  const handleExportToExcel = async () => {
+    try {
+      const resp = await API.get(
+        `${import.meta.env.VITE_API_BASE_URL}/v1/incomes/calculations/${
+          query.number
+        }/export-to-excel`,
+        { responseType: "blob" }
+      );
+      if (resp.status !== 200) {
+        throw new Error(resp.statusText);
+      }
+
+      const blob = resp.data;
+      const link = document.createElement("a");
+      link.href = URL.createObjectURL(blob);
+      link.download = `Income_Calculation_${query.number}.xlsx`;
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+      setShowSnackbar(true);
+      setSuccess("Export Income Calculation to Excel successfully");
+    } catch {
+      setError("Failed to export to Excel. Please try again.");
+      setShowSnackbar(true);
+    }
+  };
+
   return (
     <>
       <Box sx={{ p: 1, mx: "auto" }}>
@@ -129,6 +157,7 @@ const PreviewIncomeCalculation: React.FC = () => {
 
           <Box sx={{ display: "flex", gap: 2, alignItems: "center" }}>
             <Button
+              onClick={handleExportToExcel}
               variant="contained"
               startIcon={<FileDownload />}
               sx={{
