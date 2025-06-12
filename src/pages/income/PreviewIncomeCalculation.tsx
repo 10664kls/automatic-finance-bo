@@ -395,7 +395,7 @@ const PreviewIncomeCalculation: React.FC = () => {
                         variant="body1"
                         fontWeight="medium"
                         sx={{ mt: 1 }}>
-                        {formatCurrency(20598)}
+                        {formatCurrency(calculation.exchangeRate)}
                       </Typography>
                     </Box>
                   )}
