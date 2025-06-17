@@ -1,4 +1,5 @@
 
+
 export type ListCalculations = {
   calculations: Calculation[]
   nextPageToken: string  
@@ -15,6 +16,8 @@ export type  Calculation ={
   exchangeRate: number
   monthlyAverageIncome: number
   monthlyNetIncome: number
+  monthlyOtherIncome: number
+  eightyPercentOfMonthlyOtherIncome: number
   totalOtherIncome: number
   totalBasicSalary: number
   totalIncome: number
@@ -48,7 +51,6 @@ export type Source ={
   basicSalary: breakdown
   allowance: breakdown
   commission: breakdown
-  other: breakdown
 }
 
 type breakdown = {
@@ -147,4 +149,65 @@ export type IncomeTransaction = {
 
 export type ListIncomeTransactions = {
   transactions: IncomeTransaction[]
+}
+
+
+export interface ListCIBCalculations {
+  calculations : CIBCalculation[]
+  nextPageToken: string
+}
+
+export interface CIBCalculation {
+  id: number
+  cibFileName: string
+  number: string
+  customer: Customer
+  totalInstallmentInLAK: number
+  aggregateQuantity: AggregateQuantity
+  aggregateByBankCode: AggregateByBankCode[]
+  contracts: Contract[]
+  createdBy: string
+  updatedBy: string
+  createdAt: string
+  updatedAt: string
+}
+
+export interface Customer {
+  displayName: string
+  phoneNumber: string
+  dateOfBirth: string
+}
+
+export interface AggregateQuantity {
+  total: number
+  closed: number
+  active: number
+}
+
+export interface AggregateByBankCode {
+  bankCode: string
+  quantity: number
+}
+
+export interface Contract {
+  number: string
+  bankCode: string
+  type: string
+  currency: string
+  gradeCIB: string
+  term: string
+  gradeCIBLast12months: string[]
+  status: "CLOSED" | "ACTIVE"
+  termType: string
+  lastedAt: string
+  firstInstallment: string
+  lastInstallment: string
+  interestRate: number
+  financeAmount: number
+  outstandingBalance: number
+  overdueInDay: number
+  period: number
+  installment: number
+  installmentInLAK: number
+  exchangeRate: number
 }

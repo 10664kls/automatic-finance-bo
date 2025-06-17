@@ -264,14 +264,14 @@ const PreviewIncomeCalculation: React.FC = () => {
                     {calculation.product !== "SA" && (
                       <Box>
                         <Typography variant="body2" color="text.secondary">
-                          Total Other Income
+                          Other Income (Monthly Average)
                         </Typography>
                         <Typography
                           variant="h5"
                           fontWeight="medium"
                           sx={{ mt: 1, color: primaryColor }}>
                           {formatCurrency(
-                            calculation.totalOtherIncome,
+                            calculation.monthlyOtherIncome,
                             calculation.account.currency
                           )}
                         </Typography>
@@ -571,7 +571,7 @@ const PreviewIncomeCalculation: React.FC = () => {
                     </Typography>
                     <Typography variant="h5" fontWeight="medium" sx={{ mt: 1 }}>
                       {formatCurrency(
-                        calculation.source.other.monthlyAverage,
+                        calculation.eightyPercentOfMonthlyOtherIncome,
                         calculation.account.currency
                       )}
                     </Typography>
