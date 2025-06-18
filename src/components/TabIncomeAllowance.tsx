@@ -39,6 +39,7 @@ const TabIncomeAllowance = (req: TabIncomeAllowanceProps) => {
         const response = await API.put<{ calculation: Calculation }>(
           `/v1/incomes/calculations/${req.calculation.number}`,
           {
+            basicSalaryFromInterview: req.calculation.basicSalaryFromInterview,
             monthlySalaries: req.calculation.salaryBreakdown.monthlySalaries,
             allowances: editAllowances,
             commissions: req.calculation.commissionBreakdown.commissions,
@@ -130,9 +131,11 @@ const TabIncomeAllowance = (req: TabIncomeAllowanceProps) => {
     setEditAllowances(updated);
   };
 
-  const addTransaction = (title: string, transaction: IncomeTransaction) => {
+  const addTransaction = (transaction: IncomeTransaction) => {
     setEditAllowances((prev) => {
-      const existingIndex = prev.findIndex((item) => item.title === title);
+      const existingIndex = prev.findIndex(
+        (item) => item.title === transaction.noted
+      );
 
       // Case 1: Update existing item
       if (existingIndex !== -1) {
@@ -155,7 +158,7 @@ const TabIncomeAllowance = (req: TabIncomeAllowanceProps) => {
 
       // Case 2: Add new item
       const newItem = {
-        title,
+        title: transaction.noted,
         months: 12,
         transactions: [transaction],
         total: transaction.amount,
@@ -215,7 +218,7 @@ const TabIncomeAllowance = (req: TabIncomeAllowanceProps) => {
             <TableHead>
               <TableRow>
                 <TableCell>
-                  <Typography fontWeight="bold">Type of Income</Typography>
+                  <Typography fontWeight="bold">Noted</Typography>
                 </TableCell>
                 <TableCell align="right">
                   <Typography fontWeight="bold">Total Allowance</Typography>

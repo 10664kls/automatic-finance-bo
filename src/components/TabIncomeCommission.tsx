@@ -41,6 +41,7 @@ const TabIncomeCommission = (req: TabIncomeCommissionProps) => {
         const response = await API.put<{ calculation: Calculation }>(
           `/v1/incomes/calculations/${req.calculation.number}`,
           {
+            basicSalaryFromInterview: req.calculation.basicSalaryFromInterview,
             monthlySalaries: req.calculation.salaryBreakdown.monthlySalaries,
             allowances: req.calculation.allowanceBreakdown.allowances,
             commissions: editCommissions,

@@ -23,6 +23,7 @@ import {
   DialogContent,
   DialogContentText,
   DialogActions,
+  TextField,
 } from "@mui/material";
 import {
   MonetizationOn,
@@ -33,25 +34,85 @@ import {
   FileDownload,
   Check,
 } from "@mui/icons-material";
+import {
+  Edit as EditIcon,
+  Save as SaveIcon,
+  Close as CloseIcon,
+  InterpreterMode as InterpreterModeIcon,
+} from "@mui/icons-material";
 import InventoryIcon from "@mui/icons-material/Inventory";
 import ConfirmationNumberIcon from "@mui/icons-material/ConfirmationNumber";
 import ArrowBackIcon from "@mui/icons-material/ArrowBack";
 import { Link as RouterLink, useParams } from "react-router-dom";
 import { Calculation } from "../../api/model";
 import API from "../../api/axios";
-import { useQuery, useQueryClient } from "@tanstack/react-query";
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { DateTime } from "luxon";
 import { formatCurrency } from "../../utils/format";
 import TabIncomeSalary from "../../components/TabIncomeSalary";
 import TabIncomeAllowance from "../../components/TabIncomeAllowance";
 import TabIncomeCommission from "../../components/TabIncomeCommission";
+import { AxiosError } from "axios";
 
 const PreviewIncomeCalculation: React.FC = () => {
   const [activeTab, setActiveTab] = useState(0);
   const [openConfirm, setOpenConfirm] = useState(false);
+  const [isEditing, setIsEditing] = useState(false);
   const [showSnackbar, setShowSnackbar] = useState<boolean>(false);
   const [error, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState<string | null>(null);
+  const [basicSalary, setBasicSalary] = useState<string>("");
+
+  const recalculateMutation = useMutation({
+    mutationFn: async (req: {
+      basicSalaryFromInterview: string;
+      calculation: Calculation;
+    }) => {
+      try {
+        const response = await API.put<{ calculation: Calculation }>(
+          `/v1/incomes/calculations/${req.calculation.number}`,
+          {
+            basicSalaryFromInterview: req.basicSalaryFromInterview,
+            monthlySalaries: req.calculation.salaryBreakdown.monthlySalaries,
+            allowances: req.calculation.allowanceBreakdown.allowances,
+            commissions: req.calculation.commissionBreakdown.commissions,
+          }
+        );
+        if (response.status !== 200) {
+          throw Error("Failed to recalculate income");
+        }
+
+        return response.data.calculation;
+      } catch (error: unknown) {
+        if (error instanceof AxiosError) {
+          if (
+            error.response?.status === 400 &&
+            error.response.data?.error?.status === "FAILED_PRECONDITION"
+          ) {
+            setError(error.response.data.error.message);
+            throw new Error(error.response.data.error.message);
+          }
+        }
+
+        setError("Failed to recalculate income. Please try again later.");
+        throw error;
+      }
+    },
+    mutationKey: ["recalculate"],
+    onSuccess: () => {
+      setShowSnackbar(true);
+      setSuccess("Recalculate income successfully");
+      setError(null);
+      setIsEditing(false);
+      queryClient.invalidateQueries({
+        queryKey: ["getCalculation"],
+      });
+    },
+    onError: () => {
+      setShowSnackbar(true);
+      setSuccess(null);
+    },
+  });
 
   const query = useParams();
   const theme = useTheme();
@@ -139,6 +200,25 @@ const PreviewIncomeCalculation: React.FC = () => {
       setError("Failed to export to Excel. Please try again.");
       setShowSnackbar(true);
     }
+  };
+
+  const handleBasicSalaryFromInterviewClose = (calculation: Calculation) => {
+    setIsEditing(false);
+    handOnSubmitBasicSalaryFromInterview(calculation);
+  };
+
+  const handOnSubmitBasicSalaryFromInterview = async (
+    calculation: Calculation
+  ) => {
+    recalculateMutation.mutate({
+      basicSalaryFromInterview: basicSalary,
+      calculation: calculation,
+    });
+  };
+
+  const handBasicSalaryFromInterviewOnClick = (calculation: Calculation) => {
+    setIsEditing(true);
+    setBasicSalary(calculation.basicSalaryFromInterview.toString());
   };
 
   return (
@@ -261,6 +341,20 @@ const PreviewIncomeCalculation: React.FC = () => {
                         )}
                       </Typography>
                     </Box>
+                    <Box>
+                      <Typography variant="body2" color="text.secondary">
+                        Monthly Average
+                      </Typography>
+                      <Typography
+                        variant="h5"
+                        fontWeight="medium"
+                        sx={{ mt: 1, color: primaryColor }}>
+                        {formatCurrency(
+                          calculation.monthlyAverageIncome,
+                          calculation.account.currency
+                        )}
+                      </Typography>
+                    </Box>
                     {calculation.product !== "SA" && (
                       <Box>
                         <Typography variant="body2" color="text.secondary">
@@ -277,20 +371,6 @@ const PreviewIncomeCalculation: React.FC = () => {
                         </Typography>
                       </Box>
                     )}
-                    <Box>
-                      <Typography variant="body2" color="text.secondary">
-                        Monthly Average
-                      </Typography>
-                      <Typography
-                        variant="h5"
-                        fontWeight="medium"
-                        sx={{ mt: 1, color: primaryColor }}>
-                        {formatCurrency(
-                          calculation.monthlyAverageIncome,
-                          calculation.account.currency
-                        )}
-                      </Typography>
-                    </Box>
                   </Box>
                 </CardContent>
               </Card>
@@ -418,10 +498,158 @@ const PreviewIncomeCalculation: React.FC = () => {
                   gridTemplateColumns: {
                     xs: "1fr",
                     sm: "repeat(2, 1fr)",
-                    md: `repeat(${calculation.product === "SA" ? 3 : 4}, 1fr)`,
+                    md: `repeat(${calculation.product === "SA" ? 4 : 3}, 1fr)`,
                   },
                   gap: 3,
                 }}>
+                <Card
+                  sx={{
+                    borderRadius: "16px",
+                    overflow: "hidden",
+                    boxShadow: "0 4px 20px rgba(0,0,0,0.05)",
+                    position: "relative",
+                    p: 3,
+                  }}>
+                  <Box
+                    sx={{
+                      display: "flex",
+                      alignItems: "center",
+                      justifyContent: "space-between",
+                      mb: 2,
+                    }}>
+                    <Avatar
+                      sx={{
+                        bgcolor: alpha(primaryColor, 0.1),
+                        color: primaryColor,
+                      }}>
+                      <InterpreterModeIcon />
+                    </Avatar>
+
+                    {calculation.status === "PENDING" && (
+                      <>
+                        {!isEditing ? (
+                          <Button
+                            onClick={() => {
+                              handBasicSalaryFromInterviewOnClick(calculation);
+                            }}
+                            variant="outlined"
+                            size="small"
+                            startIcon={<EditIcon />}>
+                            Edit
+                          </Button>
+                        ) : (
+                          <Box sx={{ display: "flex", gap: 1, flexShrink: 0 }}>
+                            <Button
+                              onClick={() => {
+                                handOnSubmitBasicSalaryFromInterview(
+                                  calculation
+                                );
+                              }}
+                              variant="contained"
+                              size="small"
+                              startIcon={<SaveIcon />}>
+                              Save changes
+                            </Button>
+                            <Button
+                              onClick={() =>
+                                handleBasicSalaryFromInterviewClose(calculation)
+                              }
+                              variant="outlined"
+                              size="small"
+                              startIcon={<CloseIcon />}>
+                              Discard
+                            </Button>
+                          </Box>
+                        )}
+                      </>
+                    )}
+                  </Box>
+
+                  <Typography variant="body2" color="text.secondary">
+                    Base salary (Interview)
+                  </Typography>
+
+                  {!isEditing ? (
+                    <Typography variant="h5" fontWeight="medium" sx={{ mt: 1 }}>
+                      {formatCurrency(
+                        calculation.basicSalaryFromInterview,
+                        calculation.account.currency
+                      )}
+                    </Typography>
+                  ) : (
+                    <Box
+                      sx={{
+                        mt: 1,
+                        display: "flex",
+                        alignItems: "center",
+                        gap: 1,
+                        flexWrap: "wrap",
+                      }}>
+                      <TextField
+                        type="text"
+                        size="small"
+                        autoFocus
+                        value={basicSalary === "0" ? "" : basicSalary}
+                        sx={{
+                          flex: 1,
+                          minWidth: "150px",
+                          "& .MuiOutlinedInput-root": {
+                            fontSize: "1.25rem",
+                            fontWeight: "medium",
+                          },
+                        }}
+                        onChange={(e) => setBasicSalary(e.target.value)}
+                        onKeyDown={(e) => {
+                          // Allow: backspace, delete, tab, escape, enter, decimal point
+                          const allowedKeys = [
+                            "Backspace",
+                            "Delete",
+                            "Tab",
+                            "Escape",
+                            "Enter",
+                            "ArrowLeft",
+                            "ArrowRight",
+                            "ArrowUp",
+                            "ArrowDown",
+                            "Home",
+                            "End",
+                            ".",
+                          ];
+
+                          // Allow: Ctrl+A, Ctrl+C, Ctrl+V, Ctrl+X, Ctrl+Z
+                          if (
+                            e.ctrlKey &&
+                            ["a", "c", "v", "x", "z"].includes(
+                              e.key.toLowerCase()
+                            )
+                          ) {
+                            return;
+                          }
+
+                          // Allow navigation and special keys
+                          if (allowedKeys.includes(e.key)) {
+                            return;
+                          }
+
+                          // Allow numbers 0-9
+                          if (e.key >= "0" && e.key <= "9") {
+                            return;
+                          }
+
+                          // Block everything else
+                          e.preventDefault();
+                        }}
+                      />
+                    </Box>
+                  )}
+                  <Typography
+                    variant="body2"
+                    color="text.secondary"
+                    sx={{ mt: 1 }}>
+                    Monthly base
+                  </Typography>
+                </Card>
+
                 <Card
                   sx={{
                     borderRadius: "16px",

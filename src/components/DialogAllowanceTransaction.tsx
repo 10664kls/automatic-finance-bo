@@ -43,7 +43,7 @@ interface DialogProps {
   category: string;
   allowances: Allowance[];
   transactions: TransactionBreakdown[];
-  addTransaction: (title: string, transaction: IncomeTransaction) => void;
+  addTransaction: (transaction: IncomeTransaction) => void;
   updateTransaction: (title: string, months: number) => void;
   removeTransaction: (title: string, billNumber: string) => void;
   saveChanges: () => void;
@@ -69,7 +69,6 @@ const DialogAllowanceTransaction = ({
   const [successMessage, setSuccessMessage] = useState("");
   const [submitError, setSubmitError] = useState<string | null>(null);
   const [billNumber, setBillNumber] = useState<string>("");
-  const [title, setTitle] = useState<string>("");
 
   const getTransactionByBillNumber =
     async (): Promise<IncomeTransaction | null> => {
@@ -89,24 +88,23 @@ const DialogAllowanceTransaction = ({
   };
 
   const handleAddTransaction = async () => {
-    if (!title || !billNumber) {
+    if (!billNumber) {
       setSubmitError("Please fill in all fields");
       setShowSnackbar(true);
       return;
     }
 
-    const s = await getTransactionByBillNumber();
-    if (!s) {
+    const transaction = await getTransactionByBillNumber();
+    if (!transaction) {
       setSubmitError("Failed to fetch transaction by bill number");
       setShowSnackbar(true);
       return;
     }
 
-    addTransaction(title, s);
+    addTransaction(transaction);
     setShowSnackbar(true);
     setSuccess(true);
     setSuccessMessage("Transaction added successfully");
-    setTitle("");
     setBillNumber("");
     return;
   };
@@ -144,9 +142,7 @@ const DialogAllowanceTransaction = ({
                   <TableHead>
                     <TableRow>
                       <TableCell>
-                        <Typography fontWeight="bold">
-                          Type of Income
-                        </Typography>
+                        <Typography fontWeight="bold">Noted</Typography>
                       </TableCell>
                       <TableCell align="right">
                         <Typography fontWeight="bold">
@@ -283,15 +279,6 @@ const DialogAllowanceTransaction = ({
 
                   <Box sx={{ mt: 2, px: 4 }}>
                     <Stack spacing={2} direction="row">
-                      <TextField
-                        size="small"
-                        label="Type of Income"
-                        variant="outlined"
-                        value={title}
-                        onChange={(e) => setTitle(e.target.value)}
-                        fullWidth
-                      />
-
                       <TextField
                         size="small"
                         label="Bill Number"
