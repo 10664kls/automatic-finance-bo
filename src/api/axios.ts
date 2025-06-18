@@ -3,7 +3,7 @@ import { getTokenFromLocalStorage, setTokenToLocalStorage } from "../utils/stora
  
 const API = axios.create({
   baseURL: import.meta.env.VITE_API_BASE_URL,
-  timeout: 35000, // 35 seconds
+  timeout: 60000, // 60 seconds
 });
 
 API.interceptors.request.use(
