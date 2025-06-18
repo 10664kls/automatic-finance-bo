@@ -13,6 +13,7 @@ export type  Calculation ={
   number: string
   product: string
   account: Account
+  basicSalaryFromInterview: number
   exchangeRate: number
   monthlyAverageIncome: number
   monthlyNetIncome: number
