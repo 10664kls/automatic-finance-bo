@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useState } from "react";
 import {
   Table,
   TableBody,
@@ -15,6 +15,8 @@ import {
   Skeleton,
   TablePagination,
   Grid,
+  Alert,
+  Snackbar,
 } from "@mui/material";
 import { Link as RouterLink } from "react-router-dom";
 import VisibilityIcon from "@mui/icons-material/Visibility";
@@ -24,16 +26,11 @@ import DownloadIcon from "@mui/icons-material/Download";
 import ClearIcon from "@mui/icons-material/Clear";
 import { AdapterLuxon } from "@mui/x-date-pickers/AdapterLuxon";
 import { DatePicker, LocalizationProvider } from "@mui/x-date-pickers";
-
-type LoanSummary = {
-  facilityNumber: string;
-  customerName: string;
-  totalLoan: number;
-  totalClosedLoan: number;
-  totalActiveLoan: number;
-  totalInstallmentCib: number;
-  createdAt: string;
-};
+import { DateTime } from "luxon";
+import API from "../../api/axios";
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { formatCurrency, formatWithoutCurrency } from "../../utils/format";
+import { ListCIBCalculations as ListCalculations } from "../../api/model";
 
 const cibTableHeaders = [
   "No.",
@@ -47,552 +44,497 @@ const cibTableHeaders = [
   "Actions",
 ];
 
-const formatCurrency = (value: number) => `₭${value.toLocaleString("en-US")}`;
+interface Filter {
+  number: string;
+  customer: string;
+  from: DateTime | null;
+  to: DateTime | null;
+  pageToken: string;
+  pageSize: number;
+}
+
+const listCalculations = async (f: Filter): Promise<ListCalculations> => {
+  const apiURL = new URL(
+    `${import.meta.env.VITE_API_BASE_URL}/v1/cib/calculations`
+  );
+  apiURL.searchParams.set("pageSize", f.pageSize.toString());
+
+  if (f.number) {
+    apiURL.searchParams.set("number", f.number);
+  }
+  if (f.customer) {
+    apiURL.searchParams.set("customer", f.customer);
+  }
+  if (f.from) {
+    apiURL.searchParams.set("createdAfter", f.from.toString());
+  }
+  if (f.to) {
+    const toDate = f.to.plus({ hours: 23, minutes: 59, seconds: 59 });
+    apiURL.searchParams.set("createdBefore", toDate.toString());
+  }
+  if (f.pageToken) {
+    apiURL.searchParams.set("pageToken", f.pageToken);
+  }
+
+  const response = await API.get<ListCalculations>(apiURL.toString());
+  if (response.status !== 200) {
+    throw Error("Failed to get calculations");
+  }
+
+  return response.data;
+};
 
 const ListCIBCalculations = () => {
-  const [data, setData] = useState<LoanSummary[] | null>(null);
+  const [showSnackbar, setShowSnackbar] = useState<boolean>(false);
+  const [error, setError] = useState<string | null>(null);
+  const [success, setSuccess] = useState<string | null>(null);
+  const [number, setNumber] = useState<string>("");
+  const [customer, setCustomer] = useState<string>("");
+  const [from, setFrom] = useState<DateTime | null>(null);
+  const [to, setTo] = useState<DateTime | null>(null);
+  const [pageToken, setPageToken] = useState<string>("");
+  const [previousToken, setPreviousToken] = useState<string[]>([]);
+  const [pageSize, setPageSize] = useState(100);
+  const [pageNumber, setPageNumber] = useState<number>(0);
+  const queryClient = useQueryClient();
 
-  useEffect(() => {
-    const timeout = setTimeout(() => {
-      setData([
-        {
-          facilityNumber: "FAC-001",
-          customerName: "Sam Moore",
-          totalLoan: 19838326,
-          totalClosedLoan: 2068390,
-          totalActiveLoan: 17769936,
-          totalInstallmentCib: 384170,
-          createdAt: "2024-04-20",
-        },
-        {
-          facilityNumber: "FAC-002",
-          customerName: "Taylor Johnson",
-          totalLoan: 20810979,
-          totalClosedLoan: 2310819,
-          totalActiveLoan: 18500160,
-          totalInstallmentCib: 887006,
-          createdAt: "2024-11-30",
-        },
-        {
-          facilityNumber: "FAC-003",
-          customerName: "Chris Miller",
-          totalLoan: 32674299,
-          totalClosedLoan: 13951987,
-          totalActiveLoan: 18722312,
-          totalInstallmentCib: 180112,
-          createdAt: "2024-03-25",
-        },
-        {
-          facilityNumber: "FAC-004",
-          customerName: "Chris Lee",
-          totalLoan: 22108977,
-          totalClosedLoan: 1521798,
-          totalActiveLoan: 20587179,
-          totalInstallmentCib: 457794,
-          createdAt: "2024-08-28",
-        },
-        {
-          facilityNumber: "FAC-005",
-          customerName: "Alex Doe",
-          totalLoan: 12755731,
-          totalClosedLoan: 1905545,
-          totalActiveLoan: 10850186,
-          totalInstallmentCib: 922064,
-          createdAt: "2024-09-06",
-        },
-        {
-          facilityNumber: "FAC-006",
-          customerName: "Taylor Clark",
-          totalLoan: 34594572,
-          totalClosedLoan: 10188378,
-          totalActiveLoan: 24406194,
-          totalInstallmentCib: 210807,
-          createdAt: "2024-04-01",
-        },
-        {
-          facilityNumber: "FAC-007",
-          customerName: "Morgan Smith",
-          totalLoan: 45774131,
-          totalClosedLoan: 13336300,
-          totalActiveLoan: 32437831,
-          totalInstallmentCib: 830405,
-          createdAt: "2024-01-15",
-        },
-        {
-          facilityNumber: "FAC-008",
-          customerName: "Taylor Miller",
-          totalLoan: 15541663,
-          totalClosedLoan: 4817365,
-          totalActiveLoan: 10724298,
-          totalInstallmentCib: 239583,
-          createdAt: "2024-03-19",
-        },
-        {
-          facilityNumber: "FAC-009",
-          customerName: "Taylor Moore",
-          totalLoan: 22335588,
-          totalClosedLoan: 3561179,
-          totalActiveLoan: 18774409,
-          totalInstallmentCib: 187633,
-          createdAt: "2024-09-22",
-        },
-        {
-          facilityNumber: "FAC-010",
-          customerName: "John Miller",
-          totalLoan: 14338983,
-          totalClosedLoan: 1693562,
-          totalActiveLoan: 12645421,
-          totalInstallmentCib: 806190,
-          createdAt: "2024-12-31",
-        },
-        {
-          facilityNumber: "FAC-011",
-          customerName: "Sam Johnson",
-          totalLoan: 25623787,
-          totalClosedLoan: 6627567,
-          totalActiveLoan: 18996220,
-          totalInstallmentCib: 653914,
-          createdAt: "2024-11-19",
-        },
-        {
-          facilityNumber: "FAC-012",
-          customerName: "Jane Johnson",
-          totalLoan: 17183731,
-          totalClosedLoan: 2893938,
-          totalActiveLoan: 14289793,
-          totalInstallmentCib: 401728,
-          createdAt: "2024-02-15",
-        },
-        {
-          facilityNumber: "FAC-013",
-          customerName: "Jane Miller",
-          totalLoan: 18085299,
-          totalClosedLoan: 3999081,
-          totalActiveLoan: 14086218,
-          totalInstallmentCib: 286964,
-          createdAt: "2024-07-05",
-        },
-        {
-          facilityNumber: "FAC-014",
-          customerName: "John Johnson",
-          totalLoan: 39067406,
-          totalClosedLoan: 16312601,
-          totalActiveLoan: 22754805,
-          totalInstallmentCib: 907689,
-          createdAt: "2024-08-25",
-        },
-        {
-          facilityNumber: "FAC-015",
-          customerName: "Drew Wilson",
-          totalLoan: 25834560,
-          totalClosedLoan: 1435371,
-          totalActiveLoan: 24399189,
-          totalInstallmentCib: 143407,
-          createdAt: "2024-05-01",
-        },
-        {
-          facilityNumber: "FAC-016",
-          customerName: "Chris Moore",
-          totalLoan: 16974836,
-          totalClosedLoan: 3955750,
-          totalActiveLoan: 13019086,
-          totalInstallmentCib: 310204,
-          createdAt: "2024-04-24",
-        },
-        {
-          facilityNumber: "FAC-017",
-          customerName: "Chris Smith",
-          totalLoan: 19148893,
-          totalClosedLoan: 2405341,
-          totalActiveLoan: 16743552,
-          totalInstallmentCib: 488462,
-          createdAt: "2024-08-06",
-        },
-        {
-          facilityNumber: "FAC-018",
-          customerName: "Jamie Moore",
-          totalLoan: 39848279,
-          totalClosedLoan: 10490826,
-          totalActiveLoan: 29357453,
-          totalInstallmentCib: 686557,
-          createdAt: "2024-10-09",
-        },
-        {
-          facilityNumber: "FAC-019",
-          customerName: "Taylor Clark",
-          totalLoan: 31925283,
-          totalClosedLoan: 7891423,
-          totalActiveLoan: 24033860,
-          totalInstallmentCib: 865189,
-          createdAt: "2024-02-13",
-        },
-        {
-          facilityNumber: "FAC-020",
-          customerName: "Morgan Wilson",
-          totalLoan: 39249023,
-          totalClosedLoan: 4216332,
-          totalActiveLoan: 35032691,
-          totalInstallmentCib: 352949,
-          createdAt: "2024-06-02",
-        },
-        {
-          facilityNumber: "FAC-021",
-          customerName: "Jane Brown",
-          totalLoan: 16837044,
-          totalClosedLoan: 2333338,
-          totalActiveLoan: 14503706,
-          totalInstallmentCib: 241396,
-          createdAt: "2024-03-03",
-        },
-        {
-          facilityNumber: "FAC-022",
-          customerName: "Drew Moore",
-          totalLoan: 46593131,
-          totalClosedLoan: 324562,
-          totalActiveLoan: 46268569,
-          totalInstallmentCib: 549241,
-          createdAt: "2024-11-16",
-        },
-        {
-          facilityNumber: "FAC-023",
-          customerName: "Alex Smith",
-          totalLoan: 24001718,
-          totalClosedLoan: 8960112,
-          totalActiveLoan: 15041606,
-          totalInstallmentCib: 237423,
-          createdAt: "2024-11-03",
-        },
-        {
-          facilityNumber: "FAC-024",
-          customerName: "Morgan Davis",
-          totalLoan: 36148895,
-          totalClosedLoan: 13750565,
-          totalActiveLoan: 22398330,
-          totalInstallmentCib: 571261,
-          createdAt: "2024-09-22",
-        },
-        {
-          facilityNumber: "FAC-025",
-          customerName: "Jamie Johnson",
-          totalLoan: 13246003,
-          totalClosedLoan: 6511022,
-          totalActiveLoan: 6734981,
-          totalInstallmentCib: 980913,
-          createdAt: "2024-12-29",
-        },
-        {
-          facilityNumber: "FAC-026",
-          customerName: "Sam Brown",
-          totalLoan: 19124832,
-          totalClosedLoan: 8514587,
-          totalActiveLoan: 10610245,
-          totalInstallmentCib: 725535,
-          createdAt: "2024-01-03",
-        },
-        {
-          facilityNumber: "FAC-027",
-          customerName: "Morgan Miller",
-          totalLoan: 26856113,
-          totalClosedLoan: 10640654,
-          totalActiveLoan: 16215459,
-          totalInstallmentCib: 549251,
-          createdAt: "2024-12-28",
-        },
-        {
-          facilityNumber: "FAC-028",
-          customerName: "Morgan Clark",
-          totalLoan: 41303296,
-          totalClosedLoan: 1248187,
-          totalActiveLoan: 40055109,
-          totalInstallmentCib: 741707,
-          createdAt: "2024-08-27",
-        },
-        {
-          facilityNumber: "FAC-029",
-          customerName: "Alex Smith",
-          totalLoan: 44131196,
-          totalClosedLoan: 2505184,
-          totalActiveLoan: 41626012,
-          totalInstallmentCib: 977751,
-          createdAt: "2024-09-24",
-        },
-        {
-          facilityNumber: "FAC-030",
-          customerName: "Jane Lee",
-          totalLoan: 17006253,
-          totalClosedLoan: 7186838,
-          totalActiveLoan: 9819415,
-          totalInstallmentCib: 916923,
-          createdAt: "2024-08-22",
-        },
-        {
-          facilityNumber: "FAC-031",
-          customerName: "Morgan Johnson",
-          totalLoan: 22305118,
-          totalClosedLoan: 4803098,
-          totalActiveLoan: 17502020,
-          totalInstallmentCib: 174054,
-          createdAt: "2024-07-31",
-        },
-        {
-          facilityNumber: "FAC-032",
-          customerName: "Sam Moore",
-          totalLoan: 33355565,
-          totalClosedLoan: 12881976,
-          totalActiveLoan: 20473589,
-          totalInstallmentCib: 826886,
-          createdAt: "2024-01-30",
-        },
-        {
-          facilityNumber: "FAC-033",
-          customerName: "Morgan Johnson",
-          totalLoan: 25591151,
-          totalClosedLoan: 560896,
-          totalActiveLoan: 25030255,
-          totalInstallmentCib: 140631,
-          createdAt: "2024-01-20",
-        },
-        {
-          facilityNumber: "FAC-034",
-          customerName: "Drew Clark",
-          totalLoan: 47628034,
-          totalClosedLoan: 10278933,
-          totalActiveLoan: 37349101,
-          totalInstallmentCib: 545833,
-          createdAt: "2024-05-17",
-        },
-        {
-          facilityNumber: "FAC-035",
-          customerName: "John Lee",
-          totalLoan: 40304001,
-          totalClosedLoan: 3437597,
-          totalActiveLoan: 36866404,
-          totalInstallmentCib: 807185,
-          createdAt: "2024-08-19",
-        },
-      ]);
-    }, 300);
+  const mutation = useMutation({
+    mutationFn: async () => {},
+    onSuccess: () => {
+      queryClient.invalidateQueries({
+        queryKey: ["listCIBCalculations"],
+      });
+    },
+  });
 
-    return () => clearTimeout(timeout);
-  }, []);
+  const {
+    data: calculations,
+    isLoading: isCalculationsLoading,
+    error: listCalculationsError,
+  } = useQuery<ListCalculations>({
+    queryKey: ["listCIBCalculations", pageToken, pageSize],
+    queryFn: () =>
+      listCalculations({
+        number,
+        customer,
+        from,
+        to,
+        pageToken,
+        pageSize,
+      }),
+  });
+
+  const handleFilter = () => {
+    mutation.mutate();
+  };
+
+  const handleClearFilter = () => {
+    setNumber("");
+    setCustomer("");
+    setFrom(null);
+    setTo(null);
+    setPageToken("");
+    setPageSize(100);
+    mutation.mutate();
+  };
+
+  const handlePageSizeChange = (
+    event: React.ChangeEvent<HTMLTextAreaElement | HTMLInputElement>
+  ) => {
+    setPageSize(parseInt(event.target.value));
+  };
+
+  const getPreviousToken = (): string => {
+    const token = previousToken[previousToken.length - 1];
+    setPreviousToken((t) => t.slice(0, t.length - 1));
+    return token;
+  };
+
+  const handPreviousToken = (token: string) => {
+    setPreviousToken((t) => [...t, token]);
+  };
+
+  const handleExportCalculationsToExcel = async () => {
+    const apiURL = new URL(
+      `${import.meta.env.VITE_API_BASE_URL}/v1/cib/calculations/export-to-excel`
+    );
+    if (from) {
+      apiURL.searchParams.set("createdAfter", from.toString());
+    }
+    if (to) {
+      const toDate = to.plus({ hours: 23, minutes: 59, seconds: 59 });
+      apiURL.searchParams.set("createdBefore", toDate.toString());
+    }
+    if (number) {
+      apiURL.searchParams.set("number", number);
+    }
+
+    try {
+      const resp = await API.get(apiURL.toString(), { responseType: "blob" });
+      if (resp.status !== 200) {
+        throw new Error(resp.statusText);
+      }
+
+      const blob = resp.data;
+      const link = document.createElement("a");
+      link.href = URL.createObjectURL(blob);
+      link.download = "CIB_Calculations_Report.xlsx";
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+      setSuccess("Export Calculations to Excel successfully");
+      setShowSnackbar(true);
+      return;
+    } catch {
+      setError("Failed to export to Excel. Please try again.");
+      setShowSnackbar(true);
+    }
+  };
+
+  const handleExportCalculationToExcelByNumber = async (number: string) => {
+    try {
+      const resp = await API.get(
+        `${
+          import.meta.env.VITE_API_BASE_URL
+        }/v1/cib/calculations/${number}/export-to-excel`,
+        { responseType: "blob" }
+      );
+      if (resp.status !== 200) {
+        throw new Error(resp.statusText);
+      }
+
+      const blob = resp.data;
+      const link = document.createElement("a");
+      link.href = URL.createObjectURL(blob);
+      link.download = `CIB_Calculation_${number}.xlsx`;
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+      setShowSnackbar(true);
+      setSuccess("Export CIB Calculation to Excel successfully");
+    } catch {
+      setError("Failed to export to Excel. Please try again.");
+      setShowSnackbar(true);
+    }
+  };
+
+  const indexOfLastItem = (pageNumber + 1) * pageSize;
+  const indexOfFirstItem = indexOfLastItem - pageSize;
 
   return (
-    <Box>
-      <Paper sx={{ padding: 2, mb: 2 }}>
-        <Grid
-          container
-          spacing={2}
-          direction={{
-            sm: "column",
-            md: "row",
-          }}
-          sx={{
-            mb: 2,
-          }}>
+    <>
+      <Box>
+        <Paper sx={{ padding: 2, mb: 2 }}>
           <Grid
-            size={{
-              xs: 12,
-              sm: 12,
-              md: 2,
-            }}
-            sx={{ mt: 0.5 }}>
-            <TextField
-              fullWidth
-              label="Facility/LO Number"
-              variant="standard"
-              size="small"
-            />
-          </Grid>
-          <Grid
-            size={{
-              xs: 12,
-              sm: 12,
-              md: 2,
-            }}
-            sx={{ mt: 0.5 }}>
-            <TextField
-              fullWidth
-              label="Customer Name"
-              variant="standard"
-              size="small"
-            />
-          </Grid>
-          <Grid
-            size={{
-              xs: 12,
-              sm: 12,
-              md: 2,
-            }}>
-            <LocalizationProvider dateAdapter={AdapterLuxon}>
-              <DatePicker
-                format="dd/MM/yyyy"
-                label="From"
-                slotProps={{
-                  textField: {
-                    name: "from",
-                    id: "from",
-                    variant: "standard",
-                    fullWidth: true,
-                    size: "small",
-                  },
-                }}
-              />
-            </LocalizationProvider>
-          </Grid>
-          <Grid
-            size={{
-              xs: 12,
-              sm: 12,
-              md: 2,
-            }}>
-            <LocalizationProvider dateAdapter={AdapterLuxon}>
-              <DatePicker
-                format="dd/MM/yyyy"
-                label="To"
-                slotProps={{
-                  textField: {
-                    name: "to",
-                    id: "to",
-                    fullWidth: true,
-                    variant: "standard",
-                    size: "small",
-                  },
-                }}
-              />
-            </LocalizationProvider>
-          </Grid>
-          <Grid
-            size={{
-              xs: 12,
-              sm: 12,
-              md: 2,
+            container
+            spacing={2}
+            direction={{
+              sm: "column",
+              md: "row",
             }}
             sx={{
-              mt: 1.5,
+              mb: 2,
             }}>
-            <Stack
-              direction="row"
-              spacing={1}
-              sx={{ justifyContent: "flex-end" }}>
+            <Grid
+              size={{
+                xs: 12,
+                sm: 12,
+                md: 2,
+              }}
+              sx={{ mt: 0.5 }}>
+              <TextField
+                fullWidth
+                label="Facility/LO Number"
+                variant="standard"
+                value={number}
+                onChange={(e) => setNumber(e.target.value)}
+                size="small"
+              />
+            </Grid>
+            <Grid
+              size={{
+                xs: 12,
+                sm: 12,
+                md: 2,
+              }}
+              sx={{ mt: 0.5 }}>
+              <TextField
+                fullWidth
+                label="Customer Name"
+                variant="standard"
+                value={customer}
+                onChange={(e) => setCustomer(e.target.value)}
+                size="small"
+              />
+            </Grid>
+            <Grid
+              size={{
+                xs: 12,
+                sm: 12,
+                md: 2,
+              }}>
+              <LocalizationProvider dateAdapter={AdapterLuxon}>
+                <DatePicker
+                  format="dd/MM/yyyy"
+                  label="From"
+                  onChange={(setValue) => setFrom(setValue)}
+                  value={from}
+                  slotProps={{
+                    textField: {
+                      name: "from",
+                      id: "from",
+                      variant: "standard",
+                      fullWidth: true,
+                      size: "small",
+                    },
+                  }}
+                />
+              </LocalizationProvider>
+            </Grid>
+            <Grid
+              size={{
+                xs: 12,
+                sm: 12,
+                md: 2,
+              }}>
+              <LocalizationProvider dateAdapter={AdapterLuxon}>
+                <DatePicker
+                  format="dd/MM/yyyy"
+                  label="To"
+                  onChange={(setValue) => setTo(setValue)}
+                  value={to}
+                  slotProps={{
+                    textField: {
+                      name: "to",
+                      id: "to",
+                      fullWidth: true,
+                      variant: "standard",
+                      size: "small",
+                    },
+                  }}
+                />
+              </LocalizationProvider>
+            </Grid>
+            <Grid
+              size={{
+                xs: 12,
+                sm: 12,
+                md: 2,
+              }}
+              sx={{
+                mt: 1.5,
+              }}>
+              <Stack
+                direction="row"
+                spacing={1}
+                sx={{ justifyContent: "flex-end" }}>
+                <Button
+                  variant="outlined"
+                  color="primary"
+                  onClick={handleClearFilter}
+                  startIcon={<ClearIcon />}>
+                  Clear
+                </Button>
+                <Button
+                  variant="contained"
+                  color="primary"
+                  onClick={handleFilter}
+                  startIcon={<SearchIcon />}>
+                  Filter
+                </Button>
+              </Stack>
+            </Grid>
+          </Grid>
+        </Paper>
+
+        <Paper sx={{ p: 2, display: "flex", flexDirection: "column" }}>
+          <Stack
+            direction="row"
+            justifyContent="space-between"
+            alignItems="center"
+            mb={2}>
+            <Typography variant="h6">
+              CIB Calculations
+              <Button
+                component={RouterLink}
+                to="/cib-calculations/new"
+                variant="contained"
+                startIcon={<AddIcon />}
+                sx={{ whiteSpace: "nowrap", ml: 1 }}>
+                Add New
+              </Button>
+            </Typography>
+            <Stack direction="row" spacing={1}>
               <Button
                 variant="outlined"
-                color="primary"
-                startIcon={<ClearIcon />}>
-                Clear
-              </Button>
-              <Button
-                variant="contained"
-                color="primary"
-                startIcon={<SearchIcon />}>
-                Filter
+                startIcon={<DownloadIcon />}
+                onClick={handleExportCalculationsToExcel}>
+                Export
               </Button>
             </Stack>
-          </Grid>
-        </Grid>
-      </Paper>
-
-      <Paper sx={{ p: 2, display: "flex", flexDirection: "column" }}>
-        <Stack
-          direction="row"
-          justifyContent="space-between"
-          alignItems="center"
-          mb={2}>
-          <Typography variant="h6">
-            CIB Calculations
-            <Button
-              component={RouterLink}
-              to="/cib-calculations/new"
-              variant="contained"
-              startIcon={<AddIcon />}
-              sx={{ whiteSpace: "nowrap", ml: 1 }}>
-              Add New
-            </Button>
-          </Typography>
-          <Stack direction="row" spacing={1}>
-            <Button
-              variant="outlined"
-              startIcon={<DownloadIcon />}
-              onClick={() => ""}>
-              Export
-            </Button>
           </Stack>
-        </Stack>
 
-        {!data ? (
-          <Box sx={{ padding: 2 }}>
-            <Skeleton />
-            <Skeleton animation="wave" />
-            <Skeleton animation={false} />
-          </Box>
-        ) : (
-          <TableContainer component={Box}>
-            <Table size="small">
-              <TableHead>
-                <TableRow>
-                  {cibTableHeaders.map((header) => (
-                    <TableCell
-                      key={header}
-                      sx={{ whiteSpace: "nowrap", fontWeight: "bold" }}>
-                      {header}
-                    </TableCell>
-                  ))}
-                </TableRow>
-              </TableHead>
-              <TableBody>
-                {data.map((row, idx) => (
-                  <TableRow key={idx}>
-                    <TableCell>{idx + 1}</TableCell>
-                    <TableCell>{row.facilityNumber}</TableCell>
-                    <TableCell>{row.customerName}</TableCell>
-                    <TableCell>{formatCurrency(row.totalLoan)}</TableCell>
-                    <TableCell>{formatCurrency(row.totalClosedLoan)}</TableCell>
-                    <TableCell>{formatCurrency(row.totalActiveLoan)}</TableCell>
-                    <TableCell>
-                      {formatCurrency(row.totalInstallmentCib)}
-                    </TableCell>
-                    <TableCell>
-                      {new Date(row.createdAt).toLocaleDateString("lo-LA")}
-                    </TableCell>
-                    <TableCell>
-                      <Stack direction="row" spacing={1}>
-                        <Button
-                          startIcon={<VisibilityIcon />}
-                          size="small"
-                          variant="outlined"
-                          color="primary"
-                          component={RouterLink}
-                          to={`/cib-calculations/${row.facilityNumber}`}>
-                          Preview
-                        </Button>
-                        <Button
-                          variant="outlined"
-                          size="small"
-                          startIcon={<DownloadIcon />}
-                          onClick={() => ""}>
-                          Export
-                        </Button>
-                      </Stack>
-                    </TableCell>
+          {isCalculationsLoading && (
+            <Box sx={{ padding: 2 }}>
+              <Skeleton />
+              <Skeleton animation="wave" />
+              <Skeleton animation={false} />
+            </Box>
+          )}
+
+          {listCalculationsError && (
+            <Alert severity="error" sx={{ mb: 1, mt: 1 }}>
+              [Error] Something went wrong. Please try again later
+            </Alert>
+          )}
+
+          {calculations && (
+            <TableContainer component={Box}>
+              <Table size="small">
+                <TableHead>
+                  <TableRow>
+                    {cibTableHeaders.map((header) => (
+                      <TableCell
+                        key={header}
+                        sx={{ whiteSpace: "nowrap", fontWeight: "bold" }}>
+                        {header}
+                      </TableCell>
+                    ))}
                   </TableRow>
-                ))}
-              </TableBody>
-            </Table>
-          </TableContainer>
-        )}
+                </TableHead>
+                <TableBody>
+                  {calculations.calculations.length === 0 && (
+                    <TableRow>
+                      <TableCell
+                        align="center"
+                        colSpan={cibTableHeaders.length}>
+                        No data found
+                      </TableCell>
+                    </TableRow>
+                  )}
 
-        <TablePagination
-          component="div"
-          rowsPerPage={100}
-          page={0}
-          count={data ? data.length : 0}
-          onPageChange={() => {}}
-          onRowsPerPageChange={(e) => console.log(e.target.value)}
-          labelRowsPerPage="Page Size"
-          labelDisplayedRows={() => ``}
-          rowsPerPageOptions={[100, 200]}
-        />
-      </Paper>
-    </Box>
+                  {calculations.calculations.map((row, idx) => (
+                    <TableRow key={idx}>
+                      <TableCell>{idx + 1 + indexOfFirstItem}</TableCell>
+                      <TableCell>{row.number}</TableCell>
+                      <TableCell>{row.customer.displayName}</TableCell>
+                      <TableCell>
+                        {formatWithoutCurrency(row.aggregateQuantity.total)}
+                      </TableCell>
+                      <TableCell>
+                        {formatWithoutCurrency(row.aggregateQuantity.closed)}
+                      </TableCell>
+                      <TableCell>
+                        {formatWithoutCurrency(row.aggregateQuantity.active)}
+                      </TableCell>
+                      <TableCell>
+                        {formatCurrency(row.totalInstallmentInLAK)}
+                      </TableCell>
+                      <TableCell>
+                        {new Date(row.createdAt).toLocaleDateString("lo-LA")}
+                      </TableCell>
+                      <TableCell>
+                        <Stack direction="row" spacing={1}>
+                          <Button
+                            startIcon={<VisibilityIcon />}
+                            size="small"
+                            variant="outlined"
+                            color="primary"
+                            component={RouterLink}
+                            to={`/cib-calculations/${row.number}`}>
+                            Preview
+                          </Button>
+                          <Button
+                            variant="outlined"
+                            size="small"
+                            startIcon={<DownloadIcon />}
+                            onClick={() =>
+                              handleExportCalculationToExcelByNumber(row.number)
+                            }>
+                            Export
+                          </Button>
+                        </Stack>
+                      </TableCell>
+                    </TableRow>
+                  ))}
+                </TableBody>
+              </Table>
+            </TableContainer>
+          )}
+
+          <TablePagination
+            component="div"
+            rowsPerPage={pageSize}
+            page={pageNumber}
+            count={calculations ? calculations.calculations.length : 0}
+            onPageChange={() => {}}
+            onRowsPerPageChange={handlePageSizeChange}
+            labelRowsPerPage="Page Size"
+            labelDisplayedRows={() => ``}
+            rowsPerPageOptions={[100, 200]}
+            slotProps={{
+              actions: {
+                previousButton: {
+                  disabled: previousToken.length >= 1 ? false : true,
+                  onClick: () => {
+                    if (pageNumber > 0 && previousToken.length > 0) {
+                      setPageNumber(pageNumber - 1);
+                      if (previousToken.length == 1) {
+                        setPreviousToken([]);
+                        setPageToken("");
+                        return;
+                      }
+
+                      const token = getPreviousToken();
+                      setPageToken(token);
+                    }
+                  },
+                },
+                nextButton: {
+                  disabled:
+                    calculations && calculations.nextPageToken.length > 0
+                      ? false
+                      : true,
+                  onClick: () => {
+                    if (calculations && calculations.nextPageToken.length > 0) {
+                      const token = calculations.nextPageToken;
+                      setPageNumber(pageNumber + 1);
+                      setPageToken(token);
+                      handPreviousToken(token);
+                    }
+                  },
+                },
+              },
+            }}
+          />
+        </Paper>
+      </Box>
+
+      {success && showSnackbar && (
+        <Snackbar
+          open={showSnackbar}
+          autoHideDuration={3000}
+          onClose={() => setShowSnackbar(false)}
+          anchorOrigin={{ vertical: "top", horizontal: "right" }}>
+          <Alert
+            onClose={() => setShowSnackbar(false)}
+            severity="success"
+            sx={{ width: "100%" }}>
+            {success}
+          </Alert>
+        </Snackbar>
+      )}
+
+      <Snackbar
+        open={!!error}
+        anchorOrigin={{ vertical: "top", horizontal: "right" }}
+        autoHideDuration={5000}
+        onClose={() => setError(null)}>
+        <Alert severity="error" onClose={() => setError(null)}>
+          {error}
+        </Alert>
+      </Snackbar>
+    </>
   );
 };
 

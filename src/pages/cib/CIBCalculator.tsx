@@ -1,5 +1,5 @@
-import React from "react";
-import axios from "axios";
+"use client";
+
 import {
   Box,
   Button,
@@ -10,40 +10,89 @@ import {
   Snackbar,
   Alert,
   Stack,
+  Backdrop,
 } from "@mui/material";
 import UploadFileIcon from "@mui/icons-material/UploadFile";
 import CalculateIcon from "@mui/icons-material/Calculate";
 import ArrowBackIcon from "@mui/icons-material/ArrowBack";
 import { useForm, Controller } from "react-hook-form";
-import { Link as RouterLink } from "react-router-dom";
+import { Link as RouterLink, useNavigate } from "react-router-dom";
+import API from "../../api/axios";
+import type { CIBCalculation, Metadata } from "../../api/model";
+import { type FC, useRef, useState } from "react";
+import { AxiosError } from "axios";
 
 type FormData = {
-  loNumber: string;
-  fileUrl: string;
+  number: string;
+  cibFileName: string;
 };
 
-const CIBCalculator: React.FC = () => {
-  const { handleSubmit, control, setValue } = useForm<FormData>();
-  const [showSnackbar, setShowSnackbar] = React.useState(false);
-  const [uploading, setUploading] = React.useState(false);
-  const [uploadSuccess, setUploadSuccess] = React.useState(false);
-  const [fileError, setFileError] = React.useState<string | null>(null);
-  const [isDragging, setIsDragging] = React.useState(false);
-  const selectedFile = React.useRef<File | null>(null);
+const CIBCalculator: FC = () => {
+  const { handleSubmit, control, setValue, clearErrors } = useForm<FormData>();
+  const [showSnackbar, setShowSnackbar] = useState(false);
+  const [uploading, setUploading] = useState(false);
+  const [uploadSuccess, setUploadSuccess] = useState(false);
+  const [submitSuccess, setSubmitSuccess] = useState(false);
+  const [submitError, setSubmitError] = useState<string | null>(null);
+  const [fileError, setFileError] = useState<string | null>(null);
+  const [isDragging, setIsDragging] = useState(false);
+  const selectedFile = useRef<File | null>(null);
+  const navigate = useNavigate();
+  const [calculating, setCalculating] = useState(false);
 
-  const onSubmit = (data: FormData) => {
-    console.log("Submitted:", data);
-    alert("Form submitted successfully!");
+  const onSubmit = async (data: FormData) => {
+    setCalculating(true);
+    try {
+      const response = await API.post<{ calculation: CIBCalculation }>(
+        "/v1/cib/calculations",
+        data
+      );
+      if (response.status === 200) {
+        setShowSnackbar(true);
+        setSubmitSuccess(true);
+        navigate(`/cib-calculations/${response.data.calculation.number}`);
+        return;
+      }
+
+      throw new Error("Failed to submit form");
+    } catch (error: unknown) {
+      if (error instanceof AxiosError) {
+        switch (error.response?.status) {
+          case 409:
+            setShowSnackbar(true);
+            setSubmitError(
+              "Calculation with this number already exists. Please use a different number."
+            );
+            break;
+
+          case 400:
+            setShowSnackbar(true);
+            setSubmitError(
+              "Invalid data provided. Please check your inputs and try again."
+            );
+            break;
+
+          default:
+            setShowSnackbar(true);
+            setSubmitError("Something went wrong. Please try again.");
+            break;
+        }
+
+        return;
+      }
+
+      setShowSnackbar(true);
+      setSubmitError("Something went wrong. Please try again.");
+    } finally {
+      setCalculating(false);
+    }
   };
 
   const handleFile = (file: File) => {
-    const allowedTypes = [
-      "application/vnd.ms-excel",
-      "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
-    ];
+    const allowedTypes = ["application/pdf"];
 
     if (!allowedTypes.includes(file.type)) {
-      setFileError("Only Excel files (.xls or .xlsx) are allowed");
+      setFileError("Only PDF files (.pdf) are allowed");
       return;
     }
 
@@ -56,19 +105,24 @@ const CIBCalculator: React.FC = () => {
     setUploading(true);
     setUploadSuccess(false);
     setFileError(null);
+    clearErrors("cibFileName");
 
     try {
       const formData = new FormData();
       formData.append("file", file);
 
-      const response = await axios.post("/api/upload", formData, {
-        headers: {
-          "Content-Type": "multipart/form-data",
-        },
-      });
+      const response = await API.post<{ metadata: Metadata }>(
+        "/v1/files/cib",
+        formData,
+        {
+          headers: {
+            "Content-Type": "multipart/form-data",
+          },
+        }
+      );
 
-      const uploadedUrl = response.data.url;
-      setValue("fileUrl", uploadedUrl);
+      const uploadedUrl = response.data.metadata.name;
+      setValue("cibFileName", uploadedUrl);
       setUploadSuccess(true);
       setShowSnackbar(true);
     } catch (err) {
@@ -101,7 +155,7 @@ const CIBCalculator: React.FC = () => {
         </Typography>
         <form onSubmit={handleSubmit(onSubmit)} noValidate>
           <Controller
-            name="loNumber"
+            name="number"
             control={control}
             defaultValue=""
             rules={{ required: "Facility/LO Number is required" }}
@@ -119,7 +173,7 @@ const CIBCalculator: React.FC = () => {
           />
 
           <Controller
-            name="fileUrl"
+            name="cibFileName"
             control={control}
             defaultValue=""
             rules={{ required: "CIB file is required" }}
@@ -131,7 +185,7 @@ const CIBCalculator: React.FC = () => {
                     fileError || fieldState.error ? "error" : "text.primary"
                   }
                   gutterBottom>
-                  CIB file in json format (.json) *
+                  CIB file in PDF format (.PDF) *
                 </Typography>
 
                 <Box
@@ -183,7 +237,7 @@ const CIBCalculator: React.FC = () => {
                     color={
                       fileError || fieldState.error ? "error" : "text.secondary"
                     }>
-                    Drag and drop json file here
+                    Drag and drop PDF file here
                   </Typography>
                   <Typography
                     variant="body2"
@@ -202,7 +256,7 @@ const CIBCalculator: React.FC = () => {
                     <input
                       type="file"
                       hidden
-                      accept=".json,application/json"
+                      accept="application/pdf"
                       onChange={(e) => {
                         const file = e.target.files?.[0];
                         if (file) handleFile(file);
@@ -247,6 +301,36 @@ const CIBCalculator: React.FC = () => {
             </Snackbar>
           )}
 
+          {submitError && (
+            <Snackbar
+              open={showSnackbar}
+              autoHideDuration={3000}
+              onClose={() => setShowSnackbar(false)}
+              anchorOrigin={{ vertical: "top", horizontal: "right" }}>
+              <Alert
+                onClose={() => setShowSnackbar(false)}
+                severity="error"
+                sx={{ width: "100%" }}>
+                {submitError}
+              </Alert>
+            </Snackbar>
+          )}
+
+          {submitSuccess && (
+            <Snackbar
+              open={showSnackbar}
+              autoHideDuration={3000}
+              onClose={() => setShowSnackbar(false)}
+              anchorOrigin={{ vertical: "top", horizontal: "right" }}>
+              <Alert
+                onClose={() => setShowSnackbar(false)}
+                severity="success"
+                sx={{ width: "100%" }}>
+                Income calculated successfully!
+              </Alert>
+            </Snackbar>
+          )}
+
           <Stack spacing={1} direction="row" justifyContent="flex-end" mt={4}>
             <Button
               startIcon={<ArrowBackIcon />}
@@ -257,17 +341,53 @@ const CIBCalculator: React.FC = () => {
               Back
             </Button>
             <Button
-              startIcon={<CalculateIcon />}
               type="submit"
               variant="contained"
               color="primary"
-              disabled={uploading}
-              endIcon={uploading ? <CircularProgress size={20} /> : undefined}>
-              Calculate
+              disabled={uploading || calculating}
+              startIcon={
+                calculating ? (
+                  <CircularProgress size={20} thickness={4} />
+                ) : (
+                  <CalculateIcon />
+                )
+              }>
+              {calculating ? "Calculating..." : "Calculate"}
             </Button>
           </Stack>
         </form>
       </Paper>
+      {/* Calculation Loading Backdrop */}
+      <Backdrop
+        sx={{
+          color: "#fff",
+          zIndex: (theme) => theme.zIndex.drawer + 1,
+          backgroundColor: "rgba(0, 0, 0, 0.8)",
+        }}
+        open={calculating}>
+        <Paper
+          elevation={8}
+          sx={{
+            p: 4,
+            borderRadius: 2,
+            textAlign: "center",
+            minWidth: 300,
+            backgroundColor: "white",
+            color: "text.primary",
+          }}>
+          <Box sx={{ mb: 3 }}>
+            <CircularProgress size={60} thickness={4} />
+          </Box>
+
+          <Typography variant="h6" gutterBottom color="primary">
+            Calculating CIB...
+          </Typography>
+
+          <Typography variant="body2" color="text.secondary">
+            Please wait while we process your calculation
+          </Typography>
+        </Paper>
+      </Backdrop>
     </Box>
   );
 };
