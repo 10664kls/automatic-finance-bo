@@ -1,3 +1,7 @@
+"use client";
+
+import type React from "react";
+
 import {
   Box,
   Button,
@@ -12,6 +16,7 @@ import {
   Snackbar,
   Alert,
   Stack,
+  Backdrop,
 } from "@mui/material";
 import UploadFileIcon from "@mui/icons-material/UploadFile";
 import CalculateIcon from "@mui/icons-material/Calculate";
@@ -19,7 +24,7 @@ import ArrowBackIcon from "@mui/icons-material/ArrowBack";
 import { useForm, Controller } from "react-hook-form";
 import { Link as RouterLink, useNavigate } from "react-router-dom";
 import API from "../../api/axios";
-import { Calculation, Metadata } from "../../api/model";
+import type { Calculation, Metadata } from "../../api/model";
 import { useRef, useState } from "react";
 import { AxiosError } from "axios";
 
@@ -39,10 +44,12 @@ const IncomeCalculator: React.FC = () => {
   const [fileError, setFileError] = useState<string | null>(null);
   const [isDragging, setIsDragging] = useState(false);
   const selectedFile = useRef<File | null>(null);
+  const [calculating, setCalculating] = useState(false);
 
   const navigate = useNavigate();
 
   const onSubmit = async (data: FormData) => {
+    setCalculating(true);
     try {
       const response = await API.post<{ calculation: Calculation }>(
         "/v1/incomes/calculations",
@@ -84,6 +91,8 @@ const IncomeCalculator: React.FC = () => {
 
       setShowSnackbar(true);
       setSubmitError("Something went wrong. Please try again.");
+    } finally {
+      setCalculating(false);
     }
   };
 
@@ -377,17 +386,53 @@ const IncomeCalculator: React.FC = () => {
               Back
             </Button>
             <Button
-              startIcon={<CalculateIcon />}
+              startIcon={
+                calculating ? (
+                  <CircularProgress size={20} color="inherit" />
+                ) : (
+                  <CalculateIcon />
+                )
+              }
               type="submit"
               variant="contained"
               color="primary"
-              disabled={uploading}
-              endIcon={uploading ? <CircularProgress size={20} /> : undefined}>
-              Calculate
+              disabled={uploading || calculating}>
+              {calculating ? "Calculating..." : "Calculate"}
             </Button>
           </Stack>
         </form>
       </Paper>
+      {/* Income Calculation Loading Backdrop */}
+      <Backdrop
+        sx={{
+          color: "#fff",
+          zIndex: (theme) => theme.zIndex.drawer + 1,
+          backgroundColor: "rgba(0, 0, 0, 0.8)",
+        }}
+        open={calculating}>
+        <Paper
+          elevation={8}
+          sx={{
+            p: 4,
+            borderRadius: 2,
+            textAlign: "center",
+            minWidth: 300,
+            backgroundColor: "white",
+            color: "text.primary",
+          }}>
+          <Box sx={{ mb: 3 }}>
+            <CircularProgress size={60} thickness={4} />
+          </Box>
+
+          <Typography variant="h6" gutterBottom color="primary">
+            Calculating Income...
+          </Typography>
+
+          <Typography variant="body2" color="text.secondary">
+            Please wait while we process your income calculation
+          </Typography>
+        </Paper>
+      </Backdrop>
     </Box>
   );
 };
