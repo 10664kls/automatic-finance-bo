@@ -1,9 +1,17 @@
+"use client";
+
+import type React from "react";
+
 import {
   Alert,
   Box,
   Button,
   Chip,
-  IconButton,
+  Dialog,
+  DialogActions,
+  DialogContent,
+  DialogContentText,
+  DialogTitle,
   Menu,
   MenuItem,
   Paper,
@@ -25,7 +33,7 @@ import LockResetIcon from "@mui/icons-material/LockReset";
 import CheckCircleIcon from "@mui/icons-material/CheckCircle";
 import BlockIcon from "@mui/icons-material/Block";
 import PersonOffIcon from "@mui/icons-material/PersonOff";
-import { ListUsers, userStatus } from "../api/model";
+import type { ListUsers, User, userStatus } from "../api/model";
 import { useQuery } from "@tanstack/react-query";
 import { useState } from "react";
 import API from "../api/axios";
@@ -40,11 +48,12 @@ const getColorFromUserStatus = (status: userStatus) => {
       return "warning";
     case "CLOSED":
       return "error";
-
     default:
       return "primary";
   }
 };
+
+type ConfirmationAction = "activate" | "deactivate" | "terminate" | null;
 
 const UserPage = () => {
   const [showSnackbar, setShowSnackbar] = useState<boolean>(false);
@@ -52,6 +61,10 @@ const UserPage = () => {
   const [openResetPwdDrawer, setOpenResetPwdDrawer] = useState<boolean>(false);
   const [success, setSuccess] = useState<string>("");
   const [userID, setUserID] = useState<string>("");
+  const [selectedUser, setSelectedUser] = useState<User | null>(null);
+  const [confirmationOpen, setConfirmationOpen] = useState<boolean>(false);
+  const [confirmationAction, setConfirmationAction] =
+    useState<ConfirmationAction>(null);
   const [pageToken, setPageToken] = useState<string>("");
   const [previousToken, setPreviousToken] = useState<string[]>([]);
   const [pageSize, setPageSize] = useState(100);
@@ -62,6 +75,7 @@ const UserPage = () => {
     data: userResp,
     isLoading,
     error: isError,
+    refetch,
   } = useQuery<ListUsers>({
     queryKey: ["listUsers", pageToken, pageSize],
     queryFn: async () => {
@@ -93,7 +107,7 @@ const UserPage = () => {
   const handlePageSizeChange = (
     event: React.ChangeEvent<HTMLTextAreaElement | HTMLInputElement>
   ) => {
-    setPageSize(parseInt(event.target.value));
+    setPageSize(Number.parseInt(event.target.value));
   };
 
   const getPreviousToken = (): string => {
@@ -104,6 +118,80 @@ const UserPage = () => {
 
   const handPreviousToken = (token: string) => {
     setPreviousToken((t) => [...t, token]);
+  };
+
+  const handleConfirmationOpen = (action: ConfirmationAction, user: User) => {
+    setConfirmationAction(action);
+    setSelectedUser(user);
+    setConfirmationOpen(true);
+    handleClose();
+  };
+
+  const handleConfirmationClose = () => {
+    setConfirmationOpen(false);
+    setConfirmationAction(null);
+    setSelectedUser(null);
+  };
+
+  const getConfirmationMessage = () => {
+    if (!selectedUser || !confirmationAction) return "";
+
+    const actionText = {
+      activate: "activate",
+      deactivate: "deactivate",
+      terminate: "terminate",
+    }[confirmationAction];
+
+    return `Are you sure you want to ${actionText} user "${selectedUser.email}"? This action cannot be undone.`;
+  };
+
+  const getConfirmationTitle = () => {
+    if (!confirmationAction) return "";
+
+    return {
+      activate: "Activate User",
+      deactivate: "Deactivate User",
+      terminate: "Terminate User",
+    }[confirmationAction];
+  };
+
+  const handleConfirmAction = async () => {
+    if (!selectedUser || !confirmationAction) return;
+
+    try {
+      let endpoint = "";
+      let successMessage = "";
+
+      switch (confirmationAction) {
+        case "activate":
+          endpoint = `/v1/auth/users/${selectedUser.id}/enable`;
+          successMessage = "User activated successfully";
+          break;
+        case "deactivate":
+          endpoint = `/v1/auth/users/${selectedUser.id}/disable`;
+          successMessage = "User deactivated successfully";
+          break;
+        case "terminate":
+          endpoint = `/v1/auth/users/${selectedUser.id}/terminate`;
+          successMessage = "User terminated successfully";
+          break;
+      }
+
+      const response = await API.post(endpoint);
+
+      if (response.status === 200) {
+        setSuccess(successMessage);
+        setShowSnackbar(true);
+        refetch(); // Refresh the user list
+      } else {
+        throw new Error(`Failed to ${confirmationAction} user`);
+      }
+    } catch {
+      setSuccess(`Failed to ${confirmationAction} user`);
+      setShowSnackbar(true);
+    }
+
+    handleConfirmationClose();
   };
 
   const createUser = async (payload: {
@@ -117,6 +205,7 @@ const UserPage = () => {
       if (response.status === 200) {
         setSuccess("User created successfully");
         setShowSnackbar(true);
+        refetch();
         return response.data;
       }
 
@@ -145,9 +234,9 @@ const UserPage = () => {
         return response.data;
       }
 
-      throw new Error("Failed to create user");
+      throw new Error("Failed to reset password");
     } catch {
-      throw new Error("Failed to create user");
+      throw new Error("Failed to reset password");
     }
   };
 
@@ -244,23 +333,49 @@ const UserPage = () => {
                         />
                       </TableCell>
                       <TableCell sx={{ whiteSpace: "nowrap" }}>
-                        <IconButton
-                          aria-label="more"
-                          id="long-button"
-                          aria-controls={open ? "long-menu" : undefined}
-                          aria-expanded={open ? "true" : undefined}
-                          aria-haspopup="true"
-                          onClick={handleClick}>
-                          <MoreVertIcon />
-                        </IconButton>
+                        <Stack direction="row" spacing={1}>
+                          <Button
+                            aria-label="more"
+                            id={`more-button-${idx}`}
+                            aria-controls={
+                              open ? `more-menu-${idx}` : undefined
+                            }
+                            aria-expanded={open ? "true" : undefined}
+                            aria-haspopup="true"
+                            onClick={(event) => {
+                              setSelectedUser(row);
+                              handleClick(event);
+                            }}
+                            size="small"
+                            component="label"
+                            role={undefined}
+                            variant="outlined"
+                            tabIndex={-1}
+                            endIcon={<MoreVertIcon />}>
+                            More
+                          </Button>
+                          <Button
+                            aria-label="reset password"
+                            onClick={() => {
+                              setUserID(row.id);
+                              setOpenResetPwdDrawer(true);
+                            }}
+                            variant="contained"
+                            size="small"
+                            sx={{ mr: 1 }}
+                            startIcon={<LockResetIcon />}>
+                            Reset Password
+                          </Button>
+                        </Stack>
+
                         <Menu
-                          id="long-menu"
+                          id={`more-menu-${idx}`}
                           anchorEl={anchorEl}
                           open={open}
                           onClose={handleClose}
                           slotProps={{
                             list: {
-                              "aria-labelledby": "long-button",
+                              "aria-labelledby": `more-button-${idx}`,
                             },
                             paper: {
                               style: {
@@ -270,24 +385,35 @@ const UserPage = () => {
                             },
                           }}>
                           <MenuItem
-                            key="resetPassword"
-                            onClick={() => {
-                              setUserID(row.id);
-                              setOpenResetPwdDrawer(true);
-                              handleClose();
-                            }}>
-                            <LockResetIcon sx={{ mr: 1 }} />
-                            Reset Password
-                          </MenuItem>
-                          <MenuItem key="enableUser" onClick={handleClose}>
+                            key="enableUser"
+                            onClick={() =>
+                              handleConfirmationOpen("activate", row)
+                            }
+                            disabled={
+                              selectedUser?.status === "ENABLED" ||
+                              selectedUser?.status === "CLOSED"
+                            }>
                             <CheckCircleIcon sx={{ mr: 1 }} />
                             Activate
                           </MenuItem>
-                          <MenuItem key="disableUser" onClick={handleClose}>
+                          <MenuItem
+                            key="disableUser"
+                            onClick={() =>
+                              handleConfirmationOpen("deactivate", row)
+                            }
+                            disabled={
+                              selectedUser?.status === "DISABLED" ||
+                              selectedUser?.status === "CLOSED"
+                            }>
                             <BlockIcon sx={{ mr: 1 }} />
                             Deactivate
                           </MenuItem>
-                          <MenuItem key="terminateUser" onClick={handleClose}>
+                          <MenuItem
+                            key="terminateUser"
+                            onClick={() =>
+                              handleConfirmationOpen("terminate", row)
+                            }
+                            disabled={selectedUser?.status === "CLOSED"}>
                             <PersonOffIcon sx={{ mr: 1 }} />
                             Terminate
                           </MenuItem>
@@ -346,6 +472,40 @@ const UserPage = () => {
           />
         </Paper>
       </Box>
+
+      {/* Confirmation Dialog */}
+      <Dialog
+        sx={{ p: 2 }}
+        open={confirmationOpen}
+        onClose={handleConfirmationClose}
+        aria-labelledby="confirmation-dialog-title"
+        aria-describedby="confirmation-dialog-description">
+        <DialogTitle id="confirmation-dialog-title">
+          {getConfirmationTitle()}
+        </DialogTitle>
+        <DialogContent>
+          <DialogContentText id="confirmation-dialog-description">
+            {getConfirmationMessage()}
+          </DialogContentText>
+        </DialogContent>
+        <DialogActions sx={{ p: 2 }}>
+          <Button
+            onClick={handleConfirmationClose}
+            color="primary"
+            variant="outlined">
+            Cancel
+          </Button>
+          <Button
+            onClick={handleConfirmAction}
+            color={confirmationAction === "terminate" ? "error" : "primary"}
+            variant="contained"
+            autoFocus>
+            {confirmationAction === "activate" && "Activate"}
+            {confirmationAction === "deactivate" && "Deactivate"}
+            {confirmationAction === "terminate" && "Terminate"}
+          </Button>
+        </DialogActions>
+      </Dialog>
 
       <DrawerAddUser
         open={openAddDrawer}
