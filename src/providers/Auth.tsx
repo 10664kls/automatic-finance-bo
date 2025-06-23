@@ -10,6 +10,7 @@ import {
   getTokenFromLocalStorage,
   setTokenToLocalStorage,
 } from "../utils/storage";
+import { userStatus } from "../api/model";
 
 interface Token {
   accessToken: string;
@@ -26,6 +27,7 @@ interface Profile {
   id: string;
   email: string;
   displayName: string;
+  status: userStatus;
 }
 
 interface AuthContextProps {

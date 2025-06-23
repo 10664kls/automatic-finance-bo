@@ -14,11 +14,28 @@ import ProtectedRoute from "./ProtectedRoute";
 import Currency from "../pages/Currency";
 import Wording from "../pages/Wording";
 import UserPage from "../pages/User";
+import MyProfilePage from "../pages/MyProfile";
 
 export const router = createBrowserRouter([
   {
     path: "/login",
     element: <Login />,
+  },
+  {
+    path: "/my-profile",
+    element: (
+      <ProtectedRoute>
+        <App />
+      </ProtectedRoute>
+    ),
+    errorElement: <InternalErrorPage />,
+    children: [
+      {
+        index: true,
+        element: <MyProfilePage />,
+        errorElement: <InternalErrorPage />,
+      },
+    ],
   },
   {
     path: "/",
