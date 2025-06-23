@@ -214,10 +214,6 @@ const MyProfilePage = () => {
 
   return (
     <Box sx={{ mx: "auto" }}>
-      <Typography variant="h5" gutterBottom sx={{ mb: 3 }}>
-        My Profile
-      </Typography>
-
       <Grid container spacing={3}>
         {/* Profile Information Card */}
         <Grid size={{ xs: 12, md: 6 }}>
