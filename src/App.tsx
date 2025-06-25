@@ -83,7 +83,7 @@ const App = () => {
                   alignItems: "center",
                   textTransform: "capitalize",
                 }}>
-                {value}
+                {decodeURIComponent(value)}
               </Typography>
             ) : (
               <Link
@@ -95,7 +95,7 @@ const App = () => {
                 to={to}
                 underline="hover"
                 color="inherit">
-                {value}
+                {decodeURIComponent(value)}
               </Link>
             );
           })}
