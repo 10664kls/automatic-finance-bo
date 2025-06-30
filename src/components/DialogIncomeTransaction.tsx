@@ -18,11 +18,13 @@ import {
   TextField,
   Tooltip,
 } from "@mui/material";
+import AutoFixHighIcon from "@mui/icons-material/AutoFixHigh";
 import { IncomeTransaction } from "../api/model";
 import { Add, Cancel, Delete, DriveFileMove, Save } from "@mui/icons-material";
 import { formatCurrency } from "../utils/format";
 import { useState } from "react";
 import API from "../api/axios";
+import DialogIncomeTransactionAdjustment from "./DialogIncomeTransactionAdjustment";
 
 interface TransactionBreakdown {
   title: string;
@@ -38,6 +40,12 @@ interface DialogProps {
   addTransaction: (transaction: IncomeTransaction) => void;
   removeTransaction: (title: string, billNumber: string) => void;
   moveTransaction?: (title: string, transaction: IncomeTransaction) => void; // Optional if you want to implement moving transactions
+  adjustTransaction?: (
+    category: string,
+    amount: number,
+    transaction: IncomeTransaction,
+    average?: number
+  ) => void;
   saveChanges: () => void;
   onClose: () => void;
 }
@@ -53,12 +61,16 @@ const DialogIncomeTransaction = ({
   saveChanges,
   category,
   moveTransaction,
+  adjustTransaction,
 }: DialogProps) => {
   const [showSnackbar, setShowSnackbar] = useState(false);
   const [success, setSuccess] = useState(false);
+  const [openAdjust, setOpenAdjust] = useState(false);
   const [successMessage, setSuccessMessage] = useState("");
   const [submitError, setSubmitError] = useState<string | null>(null);
   const [billNumber, setBillNumber] = useState<string>("");
+  const [transactionToAdjust, setTransactionToAdjust] =
+    useState<IncomeTransaction>({} as IncomeTransaction);
 
   const getTransactionByBillNumber =
     async (): Promise<IncomeTransaction | null> => {
@@ -93,6 +105,21 @@ const DialogIncomeTransaction = ({
     setSuccessMessage("Transaction added successfully");
     setBillNumber("");
     return;
+  };
+
+  const handleAdjustTransaction = (
+    category: string,
+    amount: number,
+    transaction: IncomeTransaction,
+    average?: number
+  ) => {
+    if (adjustTransaction) {
+      adjustTransaction(category, amount, transaction, average);
+      setShowSnackbar(true);
+      setSuccess(true);
+      setSuccessMessage("Transaction adjusted successfully");
+      setOpenAdjust(false);
+    }
   };
 
   let index = 1;
@@ -141,36 +168,52 @@ const DialogIncomeTransaction = ({
                           {formatCurrency(t.amount, currency)}
                         </TableCell>
                         <TableCell>
-                          {category.toUpperCase() === "SALARY" && (
-                            <Tooltip title="Move to Commission/OT">
+                          <Stack spacing={1} direction="row">
+                            {category.toUpperCase() === "SALARY" && (
+                              <>
+                                <Tooltip title="Adjust Transaction">
+                                  <IconButton
+                                    onClick={() => {
+                                      setTransactionToAdjust(t);
+                                      setOpenAdjust(true);
+                                    }}
+                                    size="small"
+                                    color="primary">
+                                    <AutoFixHighIcon />
+                                  </IconButton>
+                                </Tooltip>
+
+                                <Tooltip title="Move to Commission/OT">
+                                  <IconButton
+                                    onClick={() => {
+                                      if (moveTransaction) {
+                                        moveTransaction(tx.title, t);
+                                        setShowSnackbar(true);
+                                        setSuccess(true);
+                                        setSuccessMessage(
+                                          "Transaction moved successfully"
+                                        );
+                                      }
+                                    }}
+                                    size="small"
+                                    color="primary">
+                                    <DriveFileMove />
+                                  </IconButton>
+                                </Tooltip>
+                              </>
+                            )}
+
+                            <Tooltip title="Remove">
                               <IconButton
                                 onClick={() => {
-                                  if (moveTransaction) {
-                                    moveTransaction(tx.title, t);
-                                    setShowSnackbar(true);
-                                    setSuccess(true);
-                                    setSuccessMessage(
-                                      "Transaction moved successfully"
-                                    );
-                                  }
+                                  removeTransaction(tx.title, t.billNumber);
                                 }}
                                 size="small"
                                 color="primary">
-                                <DriveFileMove />
+                                <Delete />
                               </IconButton>
                             </Tooltip>
-                          )}
-
-                          <Tooltip title="Remove">
-                            <IconButton
-                              onClick={() => {
-                                removeTransaction(tx.title, t.billNumber);
-                              }}
-                              size="small"
-                              color="primary">
-                              <Delete />
-                            </IconButton>
-                          </Tooltip>
+                          </Stack>
                         </TableCell>
                       </TableRow>
                     ));
@@ -250,6 +293,16 @@ const DialogIncomeTransaction = ({
             {successMessage}
           </Alert>
         </Snackbar>
+      )}
+
+      {openAdjust && transactionToAdjust && adjustTransaction && (
+        <DialogIncomeTransactionAdjustment
+          open={openAdjust}
+          onClose={() => setOpenAdjust(false)}
+          currency={currency}
+          transaction={transactionToAdjust}
+          adjust={handleAdjustTransaction}
+        />
       )}
     </>
   );

@@ -21,7 +21,6 @@ import {
   DialogContent,
   DialogContentText,
   DialogActions,
-  TextField,
 } from "@mui/material";
 import {
   MonetizationOn,
@@ -51,6 +50,8 @@ import TabIncomeSalary from "../../components/TabIncomeSalary";
 import TabIncomeAllowance from "../../components/TabIncomeAllowance";
 import TabIncomeCommission from "../../components/TabIncomeCommission";
 import { AxiosError } from "axios";
+import FormattedNumberInput from "../../components/FormattedNumberInput";
+import { cleanNumberForAPI } from "../../utils/number";
 
 const PreviewIncomeCalculation: React.FC = () => {
   const [activeTab, setActiveTab] = useState(0);
@@ -70,7 +71,9 @@ const PreviewIncomeCalculation: React.FC = () => {
         const response = await API.put<{ calculation: Calculation }>(
           `/v1/incomes/calculations/${req.calculation.number}`,
           {
-            basicSalaryFromInterview: req.basicSalaryFromInterview,
+            basicSalaryFromInterview: cleanNumberForAPI(
+              req.basicSalaryFromInterview
+            ),
             monthlySalaries: req.calculation.salaryBreakdown.monthlySalaries,
             allowances: req.calculation.allowanceBreakdown.allowances,
             commissions: req.calculation.commissionBreakdown.commissions,
@@ -581,7 +584,7 @@ const PreviewIncomeCalculation: React.FC = () => {
                         gap: 1,
                         flexWrap: "wrap",
                       }}>
-                      <TextField
+                      <FormattedNumberInput
                         type="text"
                         size="small"
                         autoFocus
@@ -594,7 +597,7 @@ const PreviewIncomeCalculation: React.FC = () => {
                             fontWeight: "medium",
                           },
                         }}
-                        onChange={(e) => setBasicSalary(e.target.value)}
+                        onChange={(e) => setBasicSalary(e)}
                         onKeyDown={(e) => {
                           // Allow: backspace, delete, tab, escape, enter, decimal point
                           const allowedKeys = [
@@ -898,32 +901,34 @@ const PreviewIncomeCalculation: React.FC = () => {
         </Alert>
       </Snackbar>
 
-      <Dialog open={openConfirm} onClose={() => setOpenConfirm(false)}>
-        <DialogTitle>Confirm Completion</DialogTitle>
-        <DialogContent>
-          <DialogContentText>
-            Once this calculation is marked as complete, it can no longer be
-            edited. Are you sure you want to continue?
-          </DialogContentText>
-        </DialogContent>
-        <DialogActions sx={{ p: 2 }}>
-          <Button
-            onClick={() => setOpenConfirm(false)}
-            color="primary"
-            variant="outlined">
-            Cancel
-          </Button>
-          <Button
-            onClick={() => {
-              setOpenConfirm(false);
-              completeCalculation();
-            }}
-            color="primary"
-            variant="contained">
-            Confirm
-          </Button>
-        </DialogActions>
-      </Dialog>
+      {openConfirm && (
+        <Dialog open={openConfirm} onClose={() => setOpenConfirm(false)}>
+          <DialogTitle>Confirm Completion</DialogTitle>
+          <DialogContent>
+            <DialogContentText>
+              Once this calculation is marked as complete, it can no longer be
+              edited. Are you sure you want to continue?
+            </DialogContentText>
+          </DialogContent>
+          <DialogActions sx={{ p: 2 }}>
+            <Button
+              onClick={() => setOpenConfirm(false)}
+              color="primary"
+              variant="outlined">
+              Cancel
+            </Button>
+            <Button
+              onClick={() => {
+                setOpenConfirm(false);
+                completeCalculation();
+              }}
+              color="primary"
+              variant="contained">
+              Confirm
+            </Button>
+          </DialogActions>
+        </Dialog>
+      )}
     </>
   );
 };

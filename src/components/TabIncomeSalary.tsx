@@ -13,6 +13,7 @@ import {
   Typography,
 } from "@mui/material";
 import {
+  Allowance,
   Calculation,
   Commission,
   IncomeTransaction,
@@ -38,6 +39,7 @@ const TabIncomeSalary = (req: TabIncomeSalaryProps) => {
   const [submitSuccess, setSubmitSuccess] = useState(false);
   const [editSalaries, setEditSalaries] = useState<MonthlySalary[]>([]);
   const [editCommissions, setEditCommissions] = useState<Commission[]>([]);
+  const [editAllowances, setEditAllowances] = useState<Allowance[]>([]);
   const queryClient = useQueryClient();
 
   const recalculateMutation = useMutation({
@@ -48,7 +50,7 @@ const TabIncomeSalary = (req: TabIncomeSalaryProps) => {
           {
             basicSalaryFromInterview: req.calculation.basicSalaryFromInterview,
             monthlySalaries: editSalaries,
-            allowances: req.calculation.allowanceBreakdown.allowances,
+            allowances: editAllowances,
             commissions: editCommissions,
           }
         );
@@ -185,6 +187,131 @@ const TabIncomeSalary = (req: TabIncomeSalaryProps) => {
     });
   };
 
+  const adjustTransaction = (
+    category: string,
+    amount: number,
+    transaction: IncomeTransaction,
+    average?: number
+  ) => {
+    const remainingAmount = transaction.amount - amount;
+    setEditSalaries((prev) => {
+      const month = DateTime.fromFormat(
+        transaction.date,
+        "dd-MM-yyyy"
+      ).toFormat("LLLL-yyyy");
+      const existingIndex = prev.findIndex((item) => item.month === month);
+      if (existingIndex !== -1) {
+        const updatedMonthlySalaries = [...prev];
+        const existingItem = updatedMonthlySalaries[existingIndex];
+        const updatedExistingItem = { ...existingItem };
+        const txIDx = updatedExistingItem.transactions.findIndex(
+          (t) => t.billNumber === transaction.billNumber
+        );
+
+        if (txIDx !== -1) {
+          const updatedTransactions = [...updatedExistingItem.transactions];
+          const updatedTransaction = { ...updatedTransactions[txIDx] };
+          updatedTransaction.amount = remainingAmount;
+          updatedTransactions[txIDx] = updatedTransaction;
+
+          const total = sumFromIncomeTransactions(updatedTransactions);
+          updatedExistingItem.transactions = updatedTransactions;
+          updatedExistingItem.total = total;
+          updatedExistingItem.timesReceived = updatedTransactions.length;
+          updatedMonthlySalaries[existingIndex] = updatedExistingItem;
+        }
+        return updatedMonthlySalaries;
+      }
+
+      return prev;
+    });
+
+    switch (category) {
+      case "ALLOWANCE":
+        setEditAllowances((prev) => {
+          const existingIndex = prev.findIndex(
+            (item) => item.title === transaction.noted
+          );
+
+          // Case 1: Update existing item
+          if (existingIndex !== -1) {
+            const updated = [...prev];
+            const existingItem = updated[existingIndex];
+            const updatedTransactions = [
+              ...existingItem.transactions,
+              transaction,
+            ];
+
+            const total = sumFromIncomeTransactions(updatedTransactions);
+            const monthlyAverage = Math.floor(total / existingItem.months);
+
+            updated[existingIndex] = {
+              ...existingItem,
+              transactions: updatedTransactions,
+              total,
+              monthlyAverage: monthlyAverage < 0 ? 0 : monthlyAverage,
+            };
+
+            return updated;
+          }
+
+          // Case 2: Add new item
+          const newItem = {
+            title: transaction.noted,
+            months: average ?? 12,
+            transactions: [{ ...transaction, amount: amount }],
+            total: amount,
+            monthlyAverage: Math.floor(amount / (average ?? 12)),
+          };
+
+          return [...prev, newItem];
+        });
+        break;
+
+      case "COMMISSION":
+        setEditCommissions((prev) => {
+          const month = DateTime.fromFormat(
+            transaction.date,
+            "dd-MM-yyyy"
+          ).toFormat("LLLL-yyyy");
+          const existingIndex = prev.findIndex((item) => item.month === month);
+
+          // Case 1: Update existing item
+          if (existingIndex !== -1) {
+            const updated = [...prev];
+            const existingItem = updated[existingIndex];
+            const updatedTransactions = [
+              ...existingItem.transactions,
+              { ...transaction, amount: amount },
+            ];
+
+            const total = sumFromIncomeTransactions(updatedTransactions);
+            updated[existingIndex] = {
+              ...existingItem,
+              transactions: updatedTransactions,
+              total,
+            };
+
+            return updated;
+          }
+
+          // Case 2: Add new item
+          const newItem = {
+            month,
+            transactions: [{ ...transaction, amount: amount }],
+            total: amount,
+          };
+
+          return [...prev, newItem];
+        });
+        break;
+    }
+  };
+
+  const handleClosedDialog = () => {
+    setOpenDialog(false);
+  };
+
   return (
     <>
       <Box sx={{ p: 3 }}>
@@ -206,11 +333,14 @@ const TabIncomeSalary = (req: TabIncomeSalaryProps) => {
                 onClick={() => {
                   setOpenDialog(true);
                   setEditSalaries(
-                    req.calculation.salaryBreakdown.monthlySalaries
+                    Array.from(req.calculation.salaryBreakdown.monthlySalaries)
                   );
-                  setEditCommissions(
-                    req.calculation.commissionBreakdown.commissions
-                  );
+                  setEditCommissions([
+                    ...req.calculation.commissionBreakdown.commissions,
+                  ]);
+                  setEditAllowances([
+                    ...req.calculation.allowanceBreakdown.allowances,
+                  ]);
                 }}
                 size="small"
                 sx={{ textTransform: "none" }}>
@@ -322,11 +452,12 @@ const TabIncomeSalary = (req: TabIncomeSalaryProps) => {
               transactions: t.transactions,
             };
           })}
-          onClose={() => setOpenDialog(false)}
+          onClose={handleClosedDialog}
           saveChanges={saveChanges}
           addTransaction={addTransaction}
           removeTransaction={removeTransactionByIndex}
           moveTransaction={moveTransactionToCommission}
+          adjustTransaction={adjustTransaction}
         />
       )}
 
