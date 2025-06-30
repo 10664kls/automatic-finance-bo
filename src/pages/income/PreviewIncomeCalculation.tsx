@@ -1,5 +1,3 @@
-"use client";
-
 import type React from "react";
 import { useState } from "react";
 import {
@@ -105,7 +103,7 @@ const PreviewIncomeCalculation: React.FC = () => {
       setError(null);
       setIsEditing(false);
       queryClient.invalidateQueries({
-        queryKey: ["getCalculation"],
+        queryKey: ["getIncomeCalculation"],
       });
     },
     onError: () => {
@@ -124,7 +122,7 @@ const PreviewIncomeCalculation: React.FC = () => {
     isLoading: isCalculationLoading,
     error: getCalculationError,
   } = useQuery<Calculation>({
-    queryKey: ["getCalculation"],
+    queryKey: ["getIncomeCalculation"],
     queryFn: async () => {
       const response = await API.get<{ calculation: Calculation }>(
         `/v1/incomes/calculations/${query.number}`
@@ -135,6 +133,7 @@ const PreviewIncomeCalculation: React.FC = () => {
 
       return response.data.calculation;
     },
+    enabled: !!query.number,
   });
 
   const completeCalculation = async () => {
@@ -202,9 +201,8 @@ const PreviewIncomeCalculation: React.FC = () => {
     }
   };
 
-  const handleBasicSalaryFromInterviewClose = (calculation: Calculation) => {
+  const handleBasicSalaryFromInterviewClose = () => {
     setIsEditing(false);
-    handOnSubmitBasicSalaryFromInterview(calculation);
   };
 
   const handOnSubmitBasicSalaryFromInterview = async (
@@ -263,7 +261,7 @@ const PreviewIncomeCalculation: React.FC = () => {
           </Alert>
         )}
 
-        {calculation && (
+        {calculation && !isCalculationLoading && !getCalculationError && (
           <>
             <Typography variant="body2" color="text.secondary" sx={{ mb: 3 }}>
               {`Data based on monthly statement files for the last ${calculation.periodInMonth} months period`}
@@ -551,9 +549,7 @@ const PreviewIncomeCalculation: React.FC = () => {
                               Save changes
                             </Button>
                             <Button
-                              onClick={() =>
-                                handleBasicSalaryFromInterviewClose(calculation)
-                              }
+                              onClick={handleBasicSalaryFromInterviewClose}
                               variant="outlined"
                               size="small"
                               startIcon={<CloseIcon />}>

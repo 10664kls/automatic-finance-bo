@@ -72,7 +72,7 @@ const TabIncomeCommission = (req: TabIncomeCommissionProps) => {
       setSubmitError(null);
       setOpenDialog(false);
       queryClient.invalidateQueries({
-        queryKey: ["getCalculation"],
+        queryKey: ["getIncomeCalculation"],
       });
     },
     onError: () => {
