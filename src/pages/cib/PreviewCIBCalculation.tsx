@@ -1,5 +1,3 @@
-"use client";
-
 import React from "react";
 import { useState } from "react";
 import {
@@ -40,7 +38,7 @@ const PreviewCIBCalculation: React.FC = () => {
     isLoading: isCalculationLoading,
     error: getCalculationError,
   } = useQuery<CIBCalculation>({
-    queryKey: ["getCalculation"],
+    queryKey: ["getCIBCalculation"],
     queryFn: async () => {
       const response = await API.get<{ calculation: CIBCalculation }>(
         `/v1/cib/calculations/${query.number}`
@@ -51,6 +49,7 @@ const PreviewCIBCalculation: React.FC = () => {
 
       return response.data.calculation;
     },
+    enabled: !!query.number,
   });
 
   const primaryColor = theme.palette.primary.main;
@@ -108,7 +107,7 @@ const PreviewCIBCalculation: React.FC = () => {
           </Alert>
         )}
 
-        {calculation && (
+        {calculation && !isCalculationLoading && !getCalculationError && (
           <>
             <Typography variant="body2" color="text.secondary" sx={{ mb: 3 }}>
               Data based on the CIB installment that was received on{" "}
