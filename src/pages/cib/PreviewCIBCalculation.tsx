@@ -15,6 +15,7 @@ import {
   Stack,
   Skeleton,
   Alert,
+  Snackbar,
 } from "@mui/material";
 import { CalendarToday, FileDownload } from "@mui/icons-material";
 import ArrowBackIcon from "@mui/icons-material/ArrowBack";
@@ -29,6 +30,9 @@ import TabCIBActiveContract from "../../components/TabCIBActiveContract";
 import TabCIBClosedContract from "../../components/TabCIBClosedContract";
 
 const PreviewCIBCalculation: React.FC = () => {
+  const [showSnackbar, setShowSnackbar] = useState<boolean>(false);
+  const [error, setError] = useState<string | null>(null);
+  const [success, setSuccess] = useState<string | null>(null);
   const [activeTab, setActiveTab] = useState(0);
   const query = useParams();
   const theme = useTheme();
@@ -58,6 +62,33 @@ const PreviewCIBCalculation: React.FC = () => {
     setActiveTab(newValue);
   };
 
+  const handleExportToExcel = async () => {
+    try {
+      const resp = await API.get(
+        `${import.meta.env.VITE_API_BASE_URL}/v1/cib/calculations/${
+          query.number
+        }/export-to-excel`,
+        { responseType: "blob" }
+      );
+      if (resp.status !== 200) {
+        throw new Error(resp.statusText);
+      }
+
+      const blob = resp.data;
+      const link = document.createElement("a");
+      link.href = URL.createObjectURL(blob);
+      link.download = `CIB_Calculation_${query.number}.xlsx`;
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+      setShowSnackbar(true);
+      setSuccess("Export CIB Calculation to Excel successfully");
+    } catch {
+      setError("Failed to export to Excel. Please try again.");
+      setShowSnackbar(true);
+    }
+  };
+
   // Get initials for avatar
   const getInitials = (name: string) => {
     return name
@@ -82,6 +113,7 @@ const PreviewCIBCalculation: React.FC = () => {
 
           <Box sx={{ display: "flex", gap: 2, alignItems: "center" }}>
             <Button
+              onClick={handleExportToExcel}
               variant="contained"
               startIcon={<FileDownload />}
               sx={{
@@ -390,6 +422,31 @@ const PreviewCIBCalculation: React.FC = () => {
           </>
         )}
       </Box>
+
+      {success && showSnackbar && (
+        <Snackbar
+          open={showSnackbar}
+          autoHideDuration={3000}
+          onClose={() => setShowSnackbar(false)}
+          anchorOrigin={{ vertical: "top", horizontal: "right" }}>
+          <Alert
+            onClose={() => setShowSnackbar(false)}
+            severity="success"
+            sx={{ width: "100%" }}>
+            {success}
+          </Alert>
+        </Snackbar>
+      )}
+
+      <Snackbar
+        open={!!error}
+        anchorOrigin={{ vertical: "top", horizontal: "right" }}
+        autoHideDuration={5000}
+        onClose={() => setError(null)}>
+        <Alert severity="error" onClose={() => setError(null)}>
+          {error}
+        </Alert>
+      </Snackbar>
     </>
   );
 };
