@@ -17,7 +17,7 @@ import {
   Calculation,
   Commission,
   IncomeTransaction,
-  MonthlySalary,
+  MonthlyIncome,
 } from "../api/model";
 import { Edit, Payments } from "@mui/icons-material";
 import { formatCurrency, sumFromIncomeTransactions } from "../utils/format";
@@ -37,7 +37,7 @@ const TabIncomeSalary = (req: TabIncomeSalaryProps) => {
   const [showSnackbar, setShowSnackbar] = useState(false);
   const [submitError, setSubmitError] = useState<string | null>(null);
   const [submitSuccess, setSubmitSuccess] = useState(false);
-  const [editSalaries, setEditSalaries] = useState<MonthlySalary[]>([]);
+  const [editSalaries, setEditSalaries] = useState<MonthlyIncome[]>([]);
   const [editCommissions, setEditCommissions] = useState<Commission[]>([]);
   const [editAllowances, setEditAllowances] = useState<Allowance[]>([]);
   const queryClient = useQueryClient();
