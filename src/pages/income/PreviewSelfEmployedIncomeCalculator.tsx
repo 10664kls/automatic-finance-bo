@@ -97,7 +97,7 @@ const PreviewSelfEmployedIncomeCalculator: React.FC = () => {
   const handleExportToExcel = async () => {
     try {
       const resp = await API.get(
-        `${import.meta.env.VITE_API_BASE_URL}/v1/incomes/calculations/${
+        `${import.meta.env.VITE_API_BASE_URL}/v1/selfemployed/calculations/${
           query.number
         }/export-to-excel`,
         { responseType: "blob" }

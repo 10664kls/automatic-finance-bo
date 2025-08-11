@@ -175,7 +175,7 @@ const TabIncomeCalculationBySelfEmployed = () => {
     const apiURL = new URL(
       `${
         import.meta.env.VITE_API_BASE_URL
-      }/v1/incomes/calculations/export-to-excel`
+      }/v1/selfemployed/calculations/export-to-excel`
     );
     if (from) {
       apiURL.searchParams.set("createdAfter", from.toString());
@@ -221,7 +221,7 @@ const TabIncomeCalculationBySelfEmployed = () => {
       const resp = await API.get(
         `${
           import.meta.env.VITE_API_BASE_URL
-        }/v1/incomes/calculations/${number}/export-to-excel`,
+        }/v1/selfemployed/calculations/${number}/export-to-excel`,
         { responseType: "blob" }
       );
       if (resp.status !== 200) {
