@@ -23,6 +23,16 @@ export const formatWithoutCurrency = (
   return new Intl.NumberFormat("en-US", options).format(amount);
 };
 
+export const formatAsPercentage = (value: number) => {
+  const options: Intl.NumberFormatOptions = {
+    style: "percent",
+    maximumFractionDigits: 2,
+  };
+
+  return new Intl.NumberFormat("en-US", options).format(value /100);
+};
+
+
 export const findMinAmount = (amounts: number[]) => {
   return Math.min(...amounts);
 };
