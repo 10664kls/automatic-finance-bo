@@ -6,12 +6,10 @@ import {
   CardContent,
   Divider,
   Typography,
-  useTheme,
   Button,
   Avatar,
   Tabs,
   Tab,
-  alpha,
   Stack,
   Skeleton,
   Alert,
@@ -116,8 +114,6 @@ const PreviewIncomeCalculation: React.FC = () => {
   });
 
   const query = useParams();
-  const theme = useTheme();
-  const primaryColor = theme.palette.primary.main;
   const queryClient = useQueryClient();
 
   const {
@@ -156,7 +152,7 @@ const PreviewIncomeCalculation: React.FC = () => {
 
       setSuccess("Calculation completed successfully!");
       setShowSnackbar(true);
-      queryClient.invalidateQueries({ queryKey: ["getCalculation"] });
+      queryClient.invalidateQueries({ queryKey: ["getIncomeCalculation"] });
       return;
     } catch {
       setError("Failed to complete calculation. Please try again.");
@@ -293,7 +289,7 @@ const PreviewIncomeCalculation: React.FC = () => {
                     right: 0,
                     width: "100%",
                     height: "100%",
-                    background: alpha(theme.palette.background.default, 0.5),
+                    background: "background.default",
                     zIndex: 0,
                   }}
                 />
@@ -335,7 +331,7 @@ const PreviewIncomeCalculation: React.FC = () => {
                       <Typography
                         variant="h5"
                         fontWeight="medium"
-                        sx={{ mt: 1, color: primaryColor }}>
+                        sx={{ mt: 1 }}>
                         {formatCurrency(
                           calculation.totalBasicSalary,
                           calculation.account.currency
@@ -349,7 +345,7 @@ const PreviewIncomeCalculation: React.FC = () => {
                       <Typography
                         variant="h5"
                         fontWeight="medium"
-                        sx={{ mt: 1, color: primaryColor }}>
+                        sx={{ mt: 1 }}>
                         {formatCurrency(
                           calculation.monthlyAverageIncome,
                           calculation.account.currency
@@ -364,7 +360,7 @@ const PreviewIncomeCalculation: React.FC = () => {
                         <Typography
                           variant="h5"
                           fontWeight="medium"
-                          sx={{ mt: 1, color: primaryColor }}>
+                          sx={{ mt: 1 }}>
                           {formatCurrency(
                             calculation.monthlyOtherIncome,
                             calculation.account.currency
@@ -395,7 +391,7 @@ const PreviewIncomeCalculation: React.FC = () => {
                   <Box sx={{ display: "flex", alignItems: "center", mb: 2 }}>
                     <Avatar
                       sx={{
-                        bgcolor: primaryColor,
+                        bgcolor: "background.neutral",
                         width: 48,
                         height: 48,
                         mr: 2,
@@ -520,8 +516,7 @@ const PreviewIncomeCalculation: React.FC = () => {
                     }}>
                     <Avatar
                       sx={{
-                        bgcolor: alpha(primaryColor, 0.1),
-                        color: primaryColor,
+                        bgcolor: "background.neutral",
                       }}>
                       <InterpreterModeIcon />
                     </Avatar>
@@ -664,11 +659,7 @@ const PreviewIncomeCalculation: React.FC = () => {
                       justifyContent: "space-between",
                       mb: 2,
                     }}>
-                    <Avatar
-                      sx={{
-                        bgcolor: alpha(primaryColor, 0.1),
-                        color: primaryColor,
-                      }}>
+                    <Avatar>
                       <MonetizationOn />
                     </Avatar>
                   </Box>
@@ -704,11 +695,7 @@ const PreviewIncomeCalculation: React.FC = () => {
                       justifyContent: "space-between",
                       mb: 2,
                     }}>
-                    <Avatar
-                      sx={{
-                        bgcolor: alpha(primaryColor, 0.1),
-                        color: primaryColor,
-                      }}>
+                    <Avatar>
                       <Savings />
                     </Avatar>
                   </Box>
@@ -744,11 +731,7 @@ const PreviewIncomeCalculation: React.FC = () => {
                       justifyContent: "space-between",
                       mb: 2,
                     }}>
-                    <Avatar
-                      sx={{
-                        bgcolor: alpha(primaryColor, 0.1),
-                        color: primaryColor,
-                      }}>
+                    <Avatar>
                       <WorkOutline />
                     </Avatar>
                   </Box>
@@ -785,11 +768,7 @@ const PreviewIncomeCalculation: React.FC = () => {
                         justifyContent: "space-between",
                         mb: 2,
                       }}>
-                      <Avatar
-                        sx={{
-                          bgcolor: alpha(primaryColor, 0.1),
-                          color: primaryColor,
-                        }}>
+                      <Avatar>
                         <TrendingUp />
                       </Avatar>
                     </Box>

@@ -1,4 +1,4 @@
-import React from "react";
+import type React from "react";
 import { useState } from "react";
 import {
   Box,
@@ -8,41 +8,46 @@ import {
   Typography,
   Button,
   Avatar,
-  Tabs,
-  Tab,
   Stack,
   Skeleton,
   Alert,
   Snackbar,
+  Dialog,
+  DialogTitle,
+  DialogContent,
+  DialogContentText,
+  DialogActions,
 } from "@mui/material";
-import { CalendarToday, FileDownload } from "@mui/icons-material";
+import { CalendarToday, FileDownload, Check } from "@mui/icons-material";
+import InventoryIcon from "@mui/icons-material/Inventory";
+import ConfirmationNumberIcon from "@mui/icons-material/ConfirmationNumber";
 import ArrowBackIcon from "@mui/icons-material/ArrowBack";
-import AccountBalanceIcon from "@mui/icons-material/AccountBalance";
 import { Link as RouterLink, useParams } from "react-router-dom";
-import { useQuery } from "@tanstack/react-query";
+import { SelfEmployedCalculation } from "../../api/model";
 import API from "../../api/axios";
-import { CIBCalculation } from "../../api/model";
-import { formatCurrency, formatWithoutCurrency } from "../../utils/format";
-import TabCIBContract from "../../components/TabCIBContracts";
-import TabCIBActiveContract from "../../components/TabCIBActiveContract";
-import TabCIBClosedContract from "../../components/TabCIBClosedContract";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
+import { DateTime } from "luxon";
+import { formatCurrency } from "../../utils/format";
+import TableSelfEmployedMonthlyIncome from "../../components/TableSelfEmployedMonthlyIncome";
 
-const PreviewCIBCalculation: React.FC = () => {
+const PreviewSelfEmployedIncomeCalculator: React.FC = () => {
+  const [openConfirm, setOpenConfirm] = useState(false);
   const [showSnackbar, setShowSnackbar] = useState<boolean>(false);
   const [error, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState<string | null>(null);
-  const [activeTab, setActiveTab] = useState(0);
+
   const query = useParams();
+  const queryClient = useQueryClient();
 
   const {
     data: calculation,
     isLoading: isCalculationLoading,
     error: getCalculationError,
-  } = useQuery<CIBCalculation>({
-    queryKey: ["getCIBCalculation"],
+  } = useQuery<SelfEmployedCalculation>({
+    queryKey: ["getSelfEmployedIncomeCalculation"],
     queryFn: async () => {
-      const response = await API.get<{ calculation: CIBCalculation }>(
-        `/v1/cib/calculations/${query.number}`
+      const response = await API.get<{ calculation: SelfEmployedCalculation }>(
+        `/v1/selfemployed/calculations/${query.number}`
       );
       if (response.status !== 200) {
         throw Error("Failed to get calculation");
@@ -53,14 +58,46 @@ const PreviewCIBCalculation: React.FC = () => {
     enabled: !!query.number,
   });
 
-  const handleTabChange = (_: React.SyntheticEvent, newValue: number) => {
-    setActiveTab(newValue);
+  const completeCalculation = async () => {
+    setError(null);
+    setSuccess(null);
+    setShowSnackbar(false);
+
+    try {
+      const response = await API.patch(
+        `/v1/selfemployed/calculations/${query.number}/complete`
+      );
+      if (response.status !== 200) {
+        setError("Failed to complete calculation. Please try again.");
+        setShowSnackbar(true);
+        return;
+      }
+
+      setSuccess("Calculation completed successfully!");
+      setShowSnackbar(true);
+      queryClient.invalidateQueries({
+        queryKey: ["getSelfEmployedIncomeCalculation"],
+      });
+      return;
+    } catch {
+      setError("Failed to complete calculation. Please try again.");
+      setShowSnackbar(true);
+      return;
+    }
+  };
+
+  // Get initials for avatar
+  const getInitials = (name: string) => {
+    return name
+      .split(" ")
+      .map((n) => n[0])
+      .join("");
   };
 
   const handleExportToExcel = async () => {
     try {
       const resp = await API.get(
-        `${import.meta.env.VITE_API_BASE_URL}/v1/cib/calculations/${
+        `${import.meta.env.VITE_API_BASE_URL}/v1/incomes/calculations/${
           query.number
         }/export-to-excel`,
         { responseType: "blob" }
@@ -72,24 +109,16 @@ const PreviewCIBCalculation: React.FC = () => {
       const blob = resp.data;
       const link = document.createElement("a");
       link.href = URL.createObjectURL(blob);
-      link.download = `CIB_Calculation_${query.number}.xlsx`;
+      link.download = `Income_Calculation_${query.number}.xlsx`;
       document.body.appendChild(link);
       link.click();
       document.body.removeChild(link);
       setShowSnackbar(true);
-      setSuccess("Export CIB Calculation to Excel successfully");
+      setSuccess("Export Income Calculation to Excel successfully");
     } catch {
       setError("Failed to export to Excel. Please try again.");
       setShowSnackbar(true);
     }
-  };
-
-  // Get initials for avatar
-  const getInitials = (name: string) => {
-    return name
-      .split(" ")
-      .map((n) => n[0])
-      .join("");
   };
 
   return (
@@ -103,7 +132,7 @@ const PreviewCIBCalculation: React.FC = () => {
             alignItems: "center",
           }}>
           <Typography variant="h4" component="h1" fontWeight="bold">
-            CIB Calculation Preview
+            Income Calculation Preview
           </Typography>
 
           <Box sx={{ display: "flex", gap: 2, alignItems: "center" }}>
@@ -137,10 +166,10 @@ const PreviewCIBCalculation: React.FC = () => {
         {calculation && !isCalculationLoading && !getCalculationError && (
           <>
             <Typography variant="body2" color="text.secondary" sx={{ mb: 3 }}>
-              Data based on the CIB installment that was received on{" "}
-              {new Date(calculation.createdAt).toLocaleDateString("lo-LA")}
+              {`Data based on monthly statement files for the last ${calculation.periodInMonth} months period`}
             </Typography>
 
+            {/* Account Overview and Total Income Cards */}
             <Box
               sx={{
                 display: "grid",
@@ -148,6 +177,7 @@ const PreviewCIBCalculation: React.FC = () => {
                 gap: 3,
                 mb: 4,
               }}>
+              {/* Main summary card */}
               <Card
                 sx={{
                   borderRadius: "16px",
@@ -170,17 +200,16 @@ const PreviewCIBCalculation: React.FC = () => {
                   <Box
                     sx={{
                       display: "flex",
+                      justifyContent: "space-between",
                       alignItems: "flex-start",
                       mb: 3,
                     }}>
                     <Box>
                       <Typography variant="body2" color="text.secondary">
-                        Total Loan
+                        Net Income/Month
                       </Typography>
                       <Typography variant="h3" fontWeight="bold" sx={{ my: 1 }}>
-                        {formatWithoutCurrency(
-                          calculation.aggregateQuantity.total
-                        )}
+                        {formatCurrency(calculation.monthlyNetIncome)}
                       </Typography>
                     </Box>
                   </Box>
@@ -189,45 +218,42 @@ const PreviewCIBCalculation: React.FC = () => {
 
                   <Box
                     sx={{
-                      display: "grid",
-                      gridTemplateColumns: { xs: "1fr", sm: "repeat(3, 1fr)" },
-                      gap: 3,
+                      display: "flex",
+                      justifyContent: "space-between",
+                      alignItems: "flex-start",
+                      mb: 3,
                     }}>
                     <Box>
                       <Typography variant="body2" color="text.secondary">
-                        Total Closed Loan
+                        Total Income
                       </Typography>
                       <Typography
                         variant="h5"
                         fontWeight="medium"
-                        sx={{ mt: 1 }}>
-                        {formatWithoutCurrency(
-                          calculation.aggregateQuantity.closed
-                        )}
+                        sx={{ my: 1 }}>
+                        {formatCurrency(calculation.totalIncome)}
                       </Typography>
                     </Box>
                     <Box>
                       <Typography variant="body2" color="text.secondary">
-                        Total Active Loan
+                        Monthly Average
                       </Typography>
                       <Typography
                         variant="h5"
                         fontWeight="medium"
-                        sx={{ mt: 1 }}>
-                        {formatWithoutCurrency(
-                          calculation.aggregateQuantity.active
-                        )}
+                        sx={{ my: 1 }}>
+                        {formatCurrency(calculation.monthlyAverageIncome)}
                       </Typography>
                     </Box>
                     <Box>
                       <Typography variant="body2" color="text.secondary">
-                        Total Installment (CIB)
+                        {` Monthly Average by Margin (${calculation.marginPercentage}%)`}
                       </Typography>
                       <Typography
                         variant="h5"
                         fontWeight="medium"
-                        sx={{ mt: 1 }}>
-                        {formatCurrency(calculation.totalInstallmentInLAK)}
+                        sx={{ my: 1 }}>
+                        {formatCurrency(calculation.monthlyAverageByMargin)}
                       </Typography>
                     </Box>
                   </Box>
@@ -253,15 +279,20 @@ const PreviewCIBCalculation: React.FC = () => {
                   <Box sx={{ display: "flex", alignItems: "center", mb: 2 }}>
                     <Avatar
                       sx={{
+                        bgcolor: "background.neutral",
                         width: 48,
                         height: 48,
                         mr: 2,
                       }}>
-                      {getInitials(calculation.customer.displayName)}
+                      {getInitials(calculation.account.displayName)}
                     </Avatar>
                     <Box>
                       <Typography variant="h6" fontWeight="medium">
-                        {calculation.customer.displayName}
+                        {calculation.account.displayName}
+                      </Typography>
+                      <Typography variant="body2" color="text.secondary">
+                        {calculation.account.number} (
+                        {calculation.account.currency})
                       </Typography>
                     </Box>
                   </Box>
@@ -270,19 +301,37 @@ const PreviewCIBCalculation: React.FC = () => {
 
                   <Box sx={{ mb: 2 }}>
                     <Typography variant="body2" color="text.secondary">
-                      Facility/LO Number
+                      Product
                     </Typography>
-                    <Typography
-                      variant="body1"
-                      fontWeight="medium"
-                      sx={{ mt: 1 }}>
-                      {calculation.number}
-                    </Typography>
+                    <Box sx={{ display: "flex", alignItems: "center", mt: 1 }}>
+                      <InventoryIcon
+                        fontSize="small"
+                        sx={{ mr: 1, color: "text.secondary" }}
+                      />
+                      <Typography variant="body1" fontWeight="medium">
+                        {calculation.product}
+                      </Typography>
+                    </Box>
                   </Box>
 
                   <Box sx={{ mb: 2 }}>
                     <Typography variant="body2" color="text.secondary">
-                      Created Date
+                      Facility/LO Number
+                    </Typography>
+                    <Box sx={{ display: "flex", alignItems: "center", mt: 1 }}>
+                      <ConfirmationNumberIcon
+                        fontSize="small"
+                        sx={{ mr: 1, color: "text.secondary" }}
+                      />
+                      <Typography variant="body1" fontWeight="medium">
+                        {calculation.number}
+                      </Typography>
+                    </Box>
+                  </Box>
+
+                  <Box sx={{ mb: 2 }}>
+                    <Typography variant="body2" color="text.secondary">
+                      Statement Period
                     </Typography>
                     <Box sx={{ display: "flex", alignItems: "center", mt: 1 }}>
                       <CalendarToday
@@ -290,110 +339,51 @@ const PreviewCIBCalculation: React.FC = () => {
                         sx={{ mr: 1, color: "text.secondary" }}
                       />
                       <Typography variant="body1" fontWeight="medium">
-                        {new Date(calculation.createdAt).toLocaleDateString(
-                          "lo-LA"
-                        )}
+                        {`${DateTime.fromISO(calculation.startedAt, {
+                          zone: "Asia/Vientiane",
+                        }).toFormat("dd/MM/yyyy")} to ${DateTime.fromISO(
+                          calculation.endedAt,
+                          {
+                            zone: "Asia/Vientiane",
+                          }
+                        ).toFormat("dd/MM/yyyy")}`}
                       </Typography>
                     </Box>
                   </Box>
+
+                  <Box>
+                    <Typography variant="body2" color="text.secondary">
+                      Business Segment
+                    </Typography>
+                    <Typography
+                      variant="body1"
+                      fontWeight="medium"
+                      sx={{ my: 1 }}>
+                      {calculation.businessType.name}
+                    </Typography>
+                  </Box>
+
+                  {calculation.account.currency !== "LAK" && (
+                    <Box sx={{ mb: 2 }}>
+                      <Typography variant="body2" color="text.secondary">
+                        Exchange Rate
+                      </Typography>
+                      <Typography
+                        variant="body1"
+                        fontWeight="medium"
+                        sx={{ mt: 1 }}>
+                        {formatCurrency(calculation.exchangeRate)}
+                      </Typography>
+                    </Box>
+                  )}
                 </CardContent>
               </Card>
             </Box>
 
+            {/* Detailed Income Tabs */}
             <Box sx={{ mb: 4 }}>
-              <Typography variant="h5" fontWeight="500" gutterBottom>
-                Distribution of CIB by Bank
-              </Typography>
+              <TableSelfEmployedMonthlyIncome calculation={calculation} />
 
-              <Box
-                sx={{
-                  display: "grid",
-                  gridTemplateColumns: {
-                    xs: "1fr",
-                    sm: "repeat(2, 1fr)",
-                    md: `repeat(${
-                      calculation.aggregateByBankCode.length > 3
-                        ? 4
-                        : calculation.aggregateByBankCode.length
-                    }, 1fr)`,
-                  },
-                  gap: 3,
-                }}>
-                {calculation.aggregateByBankCode.map((item) => (
-                  <Card
-                    key={item.bankCode}
-                    sx={{
-                      borderRadius: "16px",
-                      overflow: "hidden",
-                      boxShadow: "0 4px 20px rgba(0,0,0,0.05)",
-                      position: "relative",
-                      p: 3,
-                    }}>
-                    <Box
-                      sx={{
-                        display: "flex",
-                        alignItems: "start",
-                        justifyContent: "space-between",
-                        mb: 2,
-                      }}>
-                      <Avatar>
-                        <AccountBalanceIcon />
-                      </Avatar>
-                      <Typography variant="h6" fontWeight="medium">
-                        {item.bankCode}
-                      </Typography>
-                    </Box>
-                    <Typography variant="h5" fontWeight="medium" sx={{ mt: 1 }}>
-                      {formatWithoutCurrency(item.quantity)}
-                    </Typography>
-                  </Card>
-                ))}
-              </Box>
-            </Box>
-
-            <Box sx={{ mb: 4 }}>
-              <Typography variant="h5" fontWeight="500" gutterBottom>
-                CIB Breakdown
-              </Typography>
-              <Typography variant="body2" color="text.secondary" sx={{ mb: 3 }}>
-                Distribution of CIB by status based on file upload
-              </Typography>
-            </Box>
-
-            <Box sx={{ mb: 4 }}>
-              <Card
-                sx={{
-                  borderRadius: "16px",
-                  overflow: "hidden",
-                  boxShadow: "0 4px 20px rgba(0,0,0,0.05)",
-                }}>
-                <Tabs
-                  value={activeTab}
-                  onChange={handleTabChange}
-                  variant="fullWidth"
-                  textColor="primary"
-                  indicatorColor="primary"
-                  sx={{
-                    borderBottom: 1,
-                    borderColor: "divider",
-                  }}>
-                  <Tab label="Summary" />
-                  <Tab label="Active" />
-                  <Tab label="Closed" />
-                </Tabs>
-
-                {activeTab === 0 && (
-                  <TabCIBContract calculation={calculation} />
-                )}
-
-                {activeTab === 1 && (
-                  <TabCIBActiveContract calculation={calculation} />
-                )}
-
-                {activeTab === 2 && (
-                  <TabCIBClosedContract calculation={calculation} />
-                )}
-              </Card>
               <Stack
                 direction="row"
                 spacing={2}
@@ -402,11 +392,20 @@ const PreviewCIBCalculation: React.FC = () => {
                 <Button
                   startIcon={<ArrowBackIcon />}
                   component={RouterLink}
-                  to="/cib-calculations"
+                  to="/income-calculations?type=self-employed"
                   variant="outlined"
                   sx={{ whiteSpace: "nowrap" }}>
                   Back
                 </Button>
+                {calculation.status === "PENDING" && (
+                  <Button
+                    variant="contained"
+                    onClick={() => setOpenConfirm(true)}
+                    startIcon={<Check />}
+                    sx={{ textTransform: "none", whiteSpace: "nowrap" }}>
+                    Make as Complete
+                  </Button>
+                )}
               </Stack>
             </Box>
           </>
@@ -437,8 +436,37 @@ const PreviewCIBCalculation: React.FC = () => {
           {error}
         </Alert>
       </Snackbar>
+
+      {openConfirm && (
+        <Dialog open={openConfirm} onClose={() => setOpenConfirm(false)}>
+          <DialogTitle>Confirm Completion</DialogTitle>
+          <DialogContent>
+            <DialogContentText>
+              Once this calculation is marked as complete, it can no longer be
+              edited. Are you sure you want to continue?
+            </DialogContentText>
+          </DialogContent>
+          <DialogActions sx={{ p: 2 }}>
+            <Button
+              onClick={() => setOpenConfirm(false)}
+              color="primary"
+              variant="outlined">
+              Cancel
+            </Button>
+            <Button
+              onClick={() => {
+                setOpenConfirm(false);
+                completeCalculation();
+              }}
+              color="primary"
+              variant="contained">
+              Confirm
+            </Button>
+          </DialogActions>
+        </Dialog>
+      )}
     </>
   );
 };
 
-export default PreviewCIBCalculation;
+export default PreviewSelfEmployedIncomeCalculator;

@@ -210,10 +210,10 @@ const CIBCalculator: FC = () => {
                       fileError || fieldState.error ? "error.main" : "grey.400",
                     backgroundColor:
                       fileError || fieldState.error
-                        ? "#fdecea" // light red background for error
+                        ? "primary" // light red background for error
                         : isDragging
-                        ? "#f5f5f5" // light gray on drag
-                        : "#fafafa", // default
+                        ? "background.default" // light gray on drag
+                        : "primary", // default
                     transition: "all 0.3s ease-in-out",
                     "&:hover": {
                       borderColor:

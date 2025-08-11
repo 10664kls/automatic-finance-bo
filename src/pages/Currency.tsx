@@ -188,6 +188,16 @@ const Currency = () => {
                   </TableRow>
                 </TableHead>
                 <TableBody>
+                  {currencies.currencies.length === 0 && (
+                    <TableRow>
+                      <TableCell
+                        align="center"
+                        colSpan={5}
+                        sx={{ whiteSpace: "nowrap" }}>
+                        No data found
+                      </TableCell>
+                    </TableRow>
+                  )}
                   {currencies.currencies.map((row, idx) => (
                     <TableRow key={idx}>
                       <TableCell width={"5%"} sx={{ whiteSpace: "nowrap" }}>

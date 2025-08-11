@@ -24,17 +24,23 @@ import ArrowBackIcon from "@mui/icons-material/ArrowBack";
 import { useForm, Controller } from "react-hook-form";
 import { Link as RouterLink, useNavigate } from "react-router-dom";
 import API from "../../api/axios";
-import type { Calculation, Metadata } from "../../api/model";
-import { useRef, useState } from "react";
+import type {
+  ListBusinesses,
+  Metadata,
+  SelfEmployedCalculation,
+} from "../../api/model";
+import { useCallback, useRef, useState } from "react";
 import { AxiosError } from "axios";
+import { useInfiniteQuery } from "@tanstack/react-query";
 
 type FormData = {
   number: string;
   product: string;
+  businessId: string;
   statementFileName: string;
 };
 
-const IncomeCalculator: React.FC = () => {
+const SelfEmployedIncomeCalculator: React.FC = () => {
   const { handleSubmit, control, setValue, clearErrors } = useForm<FormData>();
   const [showSnackbar, setShowSnackbar] = useState(false);
   const [uploading, setUploading] = useState(false);
@@ -51,14 +57,16 @@ const IncomeCalculator: React.FC = () => {
   const onSubmit = async (data: FormData) => {
     setCalculating(true);
     try {
-      const response = await API.post<{ calculation: Calculation }>(
-        "/v1/incomes/calculations",
+      const response = await API.post<{ calculation: SelfEmployedCalculation }>(
+        "/v1/selfemployed/calculations",
         data
       );
       if (response.status === 200) {
         setShowSnackbar(true);
         setSubmitSuccess(true);
-        navigate(`/income-calculations/${response.data.calculation.number}`);
+        navigate(
+          `/income-calculations/${response.data.calculation.number}/self-employed`
+        );
         return;
       }
 
@@ -144,6 +152,50 @@ const IncomeCalculator: React.FC = () => {
     }
   };
 
+  // Fetch paginated businesses
+  const {
+    data,
+    fetchNextPage,
+    hasNextPage,
+    isFetchingNextPage,
+    isLoading,
+    isError,
+  } = useInfiniteQuery<ListBusinesses>({
+    queryKey: ["listBusinesses"],
+    queryFn: async ({ pageParam = "" }) => {
+      const apiURL = new URL(
+        `${import.meta.env.VITE_API_BASE_URL}/v1/selfemployed/businesses`
+      );
+      if (pageParam) {
+        apiURL.searchParams.set("pageToken", pageParam as string);
+      }
+
+      const response = await API.get<ListBusinesses>(apiURL.toString());
+      if (response.status !== 200) {
+        throw Error("Failed to list businesses");
+      }
+      return response.data;
+    },
+    getNextPageParam: (lastPage) => lastPage.nextPageToken || undefined,
+    initialPageParam: "",
+  });
+
+  // Flatten paginated results
+  const businesses = data?.pages.flatMap((page) => page.businesses) ?? [];
+
+  // Scroll handler for Select menu
+  const handleScroll = useCallback(
+    (e: React.UIEvent<HTMLDivElement>) => {
+      const bottom =
+        e.currentTarget.scrollHeight - e.currentTarget.scrollTop <=
+        e.currentTarget.clientHeight + 2; // small buffer
+      if (bottom && hasNextPage && !isFetchingNextPage) {
+        fetchNextPage();
+      }
+    },
+    [hasNextPage, isFetchingNextPage, fetchNextPage]
+  );
+
   return (
     <Box
       sx={{
@@ -207,6 +259,53 @@ const IncomeCalculator: React.FC = () => {
                   <MenuItem value="SA">SA</MenuItem>
                   <MenuItem value="SF">SF</MenuItem>
                   <MenuItem value="PL">PL</MenuItem>
+                </Select>
+                {fieldState.error && (
+                  <Typography variant="body2" color="error" mt={0.5}>
+                    {fieldState.error.message}
+                  </Typography>
+                )}
+              </FormControl>
+            )}
+          />
+
+          <Controller
+            name="businessId"
+            control={control}
+            defaultValue=""
+            rules={{ required: "Business Segment is required" }}
+            render={({ field, fieldState }) => (
+              <FormControl fullWidth margin="normal" error={!!fieldState.error}>
+                <InputLabel id="type-label">Business Segment *</InputLabel>
+                <Select
+                  {...field}
+                  labelId="type-label"
+                  label="Business Segment"
+                  MenuProps={{
+                    PaperProps: {
+                      style: { maxHeight: 245, overflowY: "auto" },
+                      onScroll: handleScroll,
+                    },
+                  }}>
+                  {isLoading && <MenuItem disabled>Loading...</MenuItem>}
+                  {isError && (
+                    <MenuItem disabled>
+                      [Error] Something went wrong. Please try again later!
+                    </MenuItem>
+                  )}
+                  {businesses.length === 0 && !isLoading && (
+                    <MenuItem disabled>No data found</MenuItem>
+                  )}
+
+                  {businesses.map((b) => (
+                    <MenuItem key={b.id} value={b.id}>
+                      {`${b.name} (${b.marginPercentage}%)`}
+                    </MenuItem>
+                  ))}
+
+                  {isFetchingNextPage && (
+                    <MenuItem disabled>Loading more...</MenuItem>
+                  )}
                 </Select>
                 {fieldState.error && (
                   <Typography variant="body2" color="error" mt={0.5}>
@@ -380,7 +479,7 @@ const IncomeCalculator: React.FC = () => {
             <Button
               startIcon={<ArrowBackIcon />}
               component={RouterLink}
-              to="/income-calculations"
+              to="/income-calculations?type=self-employed"
               variant="outlined"
               sx={{ whiteSpace: "nowrap" }}>
               Back
@@ -437,4 +536,4 @@ const IncomeCalculator: React.FC = () => {
   );
 };
 
-export default IncomeCalculator;
+export default SelfEmployedIncomeCalculator;
