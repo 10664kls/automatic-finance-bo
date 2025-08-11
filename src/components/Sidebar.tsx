@@ -79,6 +79,10 @@ const Sidebar: React.FC<Props> = ({
           text: "Wording",
           path: "/system-management-wording",
         },
+        {
+          text: "Business",
+          path: "/system-management-business",
+        },
       ],
     },
   ];
@@ -142,8 +146,9 @@ const Sidebar: React.FC<Props> = ({
                   px: open ? 2 : 1,
                   textAlign: open ? "left" : "center",
                   "&.active": {
-                    backgroundColor: "#f5f5f5",
-                    borderRight: "4px solid #3e2723",
+                    color: "primary.main",
+                    backgroundColor: "background.default",
+                    borderRight: "4px solid #c4c4c4",
                   },
                   display: open ? "flex" : "block",
                 }}>
@@ -201,8 +206,9 @@ const Sidebar: React.FC<Props> = ({
                         my: 0.5,
                         pl: open ? 6 : 2,
                         "&.active": {
-                          backgroundColor: "#f5f5f5",
-                          borderRight: "4px solid #3e2723",
+                          color: "primary.main",
+                          backgroundColor: "background.default",
+                          borderRight: "4px solid #c4c4c4",
                         },
                       }}>
                       <ListItemText

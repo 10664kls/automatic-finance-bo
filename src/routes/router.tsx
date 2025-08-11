@@ -15,6 +15,9 @@ import Currency from "../pages/Currency";
 import Wording from "../pages/Wording";
 import UserPage from "../pages/User";
 import MyProfilePage from "../pages/MyProfile";
+import BusinessPage from "../pages/Business";
+import SelfEmployedIncomeCalculator from "../pages/income/SelfEmployedIncomeCalculator";
+import PreviewSelfEmployedIncomeCalculator from "../pages/income/PreviewSelfEmployedIncomeCalculator";
 
 export const router = createBrowserRouter([
   {
@@ -78,6 +81,16 @@ export const router = createBrowserRouter([
         element: <IncomeCalculator />,
         errorElement: <InternalErrorPage />,
       },
+      {
+        path: "new-self-employed",
+        element: <SelfEmployedIncomeCalculator />,
+        errorElement: <InternalErrorPage />,
+      },
+      {
+        path: ":number/self-employed",
+        element: <PreviewSelfEmployedIncomeCalculator />,
+        errorElement: <InternalErrorPage />,
+      },
     ],
   },
   {
@@ -135,6 +148,22 @@ export const router = createBrowserRouter([
       {
         index: true,
         element: <Wording />,
+        errorElement: <InternalErrorPage />,
+      },
+    ],
+  },
+  {
+    path: "system-management-business",
+    element: (
+      <ProtectedRoute>
+        <App />
+      </ProtectedRoute>
+    ),
+    errorElement: <InternalErrorPage />,
+    children: [
+      {
+        index: true,
+        element: <BusinessPage />,
         errorElement: <InternalErrorPage />,
       },
     ],
