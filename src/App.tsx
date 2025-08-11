@@ -71,10 +71,27 @@ const App = () => {
             <HomeIcon sx={{ mr: 0.5 }} fontSize="inherit" />
             Dashboard
           </Link>
+
           {pathnames.map((value, index) => {
             const to = `/${pathnames.slice(0, index + 1).join("/")}`;
+            const isClickable = index === 0;
             const isLast = index === pathnames.length - 1;
-            return isLast ? (
+
+            if (isClickable && !isLast) {
+              return (
+                <Link
+                  key={to}
+                  component={RouterLink}
+                  to={to}
+                  underline="hover"
+                  color="inherit"
+                  sx={{ textTransform: "capitalize" }}>
+                  {decodeURIComponent(value)}
+                </Link>
+              );
+            }
+
+            return (
               <Typography
                 key={to}
                 sx={{
@@ -85,18 +102,6 @@ const App = () => {
                 }}>
                 {decodeURIComponent(value)}
               </Typography>
-            ) : (
-              <Link
-                sx={{
-                  textTransform: "capitalize",
-                }}
-                key={to}
-                component={RouterLink}
-                to={to}
-                underline="hover"
-                color="inherit">
-                {decodeURIComponent(value)}
-              </Link>
             );
           })}
         </Breadcrumbs>
