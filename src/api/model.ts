@@ -60,16 +60,21 @@ type breakdown = {
 }
 
 export type ListMonthlySalaries = {
-  monthlySalaries: MonthlySalary[]
+  monthlySalaries: MonthlyIncome[]
   basicSalary: number
   total: number
 }
 
-export type MonthlySalary = {
+export type MonthlyIncome = {
   month: string
   timesReceived: number
   transactions: IncomeTransaction[]
   total: number
+}
+
+export type MonthlyIncomeReq = {
+  month: string
+  transactions: IncomeTransaction[]
 }
 
 export type ListAllowances = {
@@ -121,6 +126,18 @@ export type Wording = {
 export type ListWordings = {
   nextPageToken: string 
   wordlists: Wording[]
+}
+
+export type SelfEmployedWording = {
+  id: number
+  word: string
+  createdBy: string
+  createdAt: string
+}
+
+export type ListSelfEmployedWordings = {
+  nextPageToken: string 
+  wordlists: SelfEmployedWording[]
 }
 
 export type sourceCategory = "SALARY" | "ALLOWANCE" | "COMMISSION" | ""
@@ -211,4 +228,54 @@ export interface Contract {
   installment: number
   installmentInLAK: number
   exchangeRate: number
+}
+
+export type Business = {
+  id : string 
+  name: string
+  marginPercentage: number
+  createdAt: string
+  updatedAt: string
+}
+
+export type ListBusinesses = {
+  nextPageToken: string 
+  businesses: Business[]
+}
+
+export type BusinessType = {
+  id: string
+  name: string
+}
+
+export type  SelfEmployedCalculation ={
+  id: number
+  statementFileId: number
+  businessType: BusinessType
+  number: string
+  product: string
+  account: Account
+  exchangeRate: number
+  marginPercentage: number
+  monthlyAverageIncome: number
+  monthlyAverageByMargin: number
+  monthlyNetIncome: number
+  totalIncome: number
+  periodInMonth: number
+  startedAt: string
+  endedAt: string
+  createdBy: string
+  createdAt: string
+  status:calculationStatus
+  monthlyBreakdown: MonthlyBreakdown
+}
+
+export type MonthlyBreakdown = {
+  total: number
+  monthlyIncomes: MonthlyIncome[]
+}
+
+export type ListSelfEmployedCalculations = {
+  calculations: SelfEmployedCalculation[]
+  nextPageToken: string  
 }
